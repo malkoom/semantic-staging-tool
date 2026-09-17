@@ -1,0 +1,1 @@
+Herramienta de set dressing y diseño de niveles 3D en C++20 con Raylib y Dear ImGui. Traduce descripciones semánticas procesadas por un LLM en disposiciones espaciales deterministas mediante raycasting, orientación por cuaterniones y resolución de restricciones físicas en tiempo real.
