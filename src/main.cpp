@@ -5,6 +5,7 @@
 #include "props/PropModel.hpp"
 
 #include "rendering/CameraController.hpp"
+#include "rendering/SceneGraph.hpp"
 
 int main() {
     // Inicialización de la ventana (Raylib)
@@ -32,6 +33,10 @@ int main() {
     model2.Scale = 10;
 
     model2.ModelColor = MAGENTA;
+
+    SceneGraph sceneGraph;
+    sceneGraph.Initialize("assets/models");
+
     while (!WindowShouldClose()) {
 
         // --- UPDATE ---
@@ -44,8 +49,9 @@ int main() {
         // Renderizado 3D
         BeginMode3D(camera.GetCamera());
         // DrawCube({0, 0, 0}, 2.f, 2.f, 2.f, RAYWHITE);
-        model1.Draw();
-        model2.Draw();
+        // model1.Draw();
+        // model2.Draw();
+        sceneGraph.Draw();
         EndMode3D();
 
         // Iniciar bloque de UI

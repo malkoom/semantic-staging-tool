@@ -7,8 +7,8 @@
 
 class SceneGraph {
   public:
-    SceneGraph();
-    ~SceneGraph();
+    SceneGraph() = default;
+    ~SceneGraph() = default;
 
     void Initialize(const char* assetsDir);
     void Draw();
