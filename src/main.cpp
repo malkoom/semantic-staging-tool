@@ -48,6 +48,7 @@ int main() {
 
         // Renderizado 3D
         BeginMode3D(camera.GetCamera());
+        DrawGrid(20, 1.0f);
         // DrawCube({0, 0, 0}, 2.f, 2.f, 2.f, RAYWHITE);
         // model1.Draw();
         // model2.Draw();
