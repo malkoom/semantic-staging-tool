@@ -1,9 +1,13 @@
 #pragma once
 
+#include <nlohmann/json.hpp>
+
 #include <string>
 #include <unordered_map>
 
 #include "../props/PropModel.hpp"
+
+#include "nlohmann/json_fwd.hpp"
 
 class SceneGraph {
   public:
@@ -11,6 +15,8 @@ class SceneGraph {
     ~SceneGraph() = default;
 
     void Initialize(const char* assetsDir);
+    const nlohmann::json BuildAIContext(const std::string& userPrompt,
+                                        float roomWidth, float roomDepth);
     void Draw();
 
   private:

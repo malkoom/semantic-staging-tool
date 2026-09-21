@@ -9,7 +9,16 @@ class PropModel {
     Color ModelColor{RAYWHITE};
 
   public:
-    PropModel(const char* filePath) { m_Model = LoadModel(filePath); };
+    PropModel(const char* filePath) {
+        m_Model = LoadModel(filePath);
+        m_LocalBounds = GetModelBoundingBox(m_Model);
+
+        float width = m_LocalBounds.max.x - m_LocalBounds.min.x;
+        float depth = m_LocalBounds.max.z - m_LocalBounds.min.z;
+
+        // Radio medio proyectado en XZ
+        m_BoundingRadius = 0.25f * (width + depth);
+    };
     ~PropModel() { UnloadModel(m_Model); };
 
     // Constructores copia no permitidos
@@ -32,11 +41,15 @@ class PropModel {
         return *this;
     }
 
-    // Getter
+    // Getters
     const Model& GetModel() const { return m_Model; }
+    const float GetRadius() const { return m_BoundingRadius; }
+    const BoundingBox GetBounds() const { return m_LocalBounds; }
 
     void Draw() { DrawModel(m_Model, Position, Scale, ModelColor); };
 
   private:
     Model m_Model{};
+    BoundingBox m_LocalBounds{};
+    float m_BoundingRadius{0.5f};
 };
