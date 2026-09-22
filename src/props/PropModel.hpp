@@ -45,6 +45,7 @@ class PropModel {
     const Model& GetModel() const { return m_Model; }
     const float GetRadius() const { return m_BoundingRadius; }
     const BoundingBox GetBounds() const { return m_LocalBounds; }
+    const bool IsStatic() const { return m_IsStatic; }
 
     void Draw() { DrawModel(m_Model, Position, Scale, ModelColor); };
 
@@ -52,4 +53,5 @@ class PropModel {
     Model m_Model{};
     BoundingBox m_LocalBounds{};
     float m_BoundingRadius{0.5f};
+    float m_IsStatic{false};
 };

@@ -1,8 +1,12 @@
-#include "imgui.h"
+
+#include <string>
+
 #include "raylib.h"
 #include "rlImGui.h"
 
-#include "props/PropModel.hpp"
+#include "UI/GUI.hpp"
+
+#include "network/AIClient.hpp"
 
 #include "rendering/CameraController.hpp"
 #include "rendering/SceneGraph.hpp"
@@ -15,51 +19,49 @@ int main() {
     SetTargetFPS(60);
 
     // Inicialización del contexto de ImGui (rlImGui)
-    rlImGuiSetup(true);
-
+    GUI uiManager{};
+    float roomWidth = 10;
+    float roomDepth = 10;
+    float roomScale = 1;
+    std::string userPrompt = "";
     // Camara
     CameraController camera{};
     DisableCursor();
 
     // Objects
-    PropModel model1{"assets/models/StylizedFood_Toyamon/Assets/obj/"
-                     "Food_Vegetables_Broccoli.obj"}; // Bucle principal
-    PropModel model2{"assets/models/StylizedFood_Toyamon/Assets/obj/"
-                     "Food_Vegetables_Potato.obj"}; // Bucle principal
-
-    model2.Position = {3, 0, 0};
-
-    model1.Scale = 10;
-    model2.Scale = 10;
-
-    model2.ModelColor = MAGENTA;
-
     SceneGraph sceneGraph;
     sceneGraph.Initialize("assets/models");
 
+    // AI Client
+    AIClient aiManager{};
+    std::string apiKey = "Mi API key";
+    std::string endPoint = "Endpoint del modelo de lenguaje";
+    auto promptCallback = [&]() {
+        auto payload =
+            sceneGraph.BuildAIContext(userPrompt, roomWidth, roomDepth);
+        aiManager.RequestLayoutAsync(endPoint, apiKey, payload);
+    };
     while (!WindowShouldClose()) {
 
         // --- UPDATE ---
         camera.Update();
 
-        // --- DRAW (Renderizado) ---
+        // --- DRAW ---
         BeginDrawing();
         ClearBackground(DARKGRAY);
 
         // Renderizado 3D
         BeginMode3D(camera.GetCamera());
         DrawGrid(20, 1.0f);
-        // DrawCube({0, 0, 0}, 2.f, 2.f, 2.f, RAYWHITE);
-        // model1.Draw();
-        // model2.Draw();
         sceneGraph.Draw();
         EndMode3D();
 
         // Iniciar bloque de UI
         rlImGuiBegin();
-        // Ventana de prueba para verificar que ImGui compila y funciona
-        bool open = true;
-        ImGui::ShowDemoWindow(&open);
+
+        // Pintar mi objeto de la clase UI
+        uiManager.DrawEditorUI(userPrompt, roomWidth, roomDepth, roomScale,
+                               promptCallback);
 
         // Finalizar bloque de UI
         rlImGuiEnd();

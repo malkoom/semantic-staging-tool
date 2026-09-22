@@ -17,6 +17,7 @@ class SceneGraph {
     void Initialize(const char* assetsDir);
     const nlohmann::json BuildAIContext(const std::string& userPrompt,
                                         float roomWidth, float roomDepth);
+    void ResolveOverlaps(int maxIterations = 8);
     void Draw();
 
   private:
