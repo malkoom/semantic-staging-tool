@@ -22,7 +22,7 @@ const nlohmann::json SceneGraph::BuildAIContext(const std::string& userPrompt,
         nlohmann::json propEntry;
         propEntry["id"] = name;
 
-        // Si añadiste los métodos GetRadius() o GetBounds() a PropModel:
+        // Radio del modelo
         propEntry["bounding_radius"] = model.GetRadius();
 
         // Opcional: pasar las dimensiones de la caja para que el LLM entienda

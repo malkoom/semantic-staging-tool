@@ -30,7 +30,8 @@ class AIClient {
 
     // Consume la respuesta (devuelve el contenido solo una vez tras el éxito)
     std::optional<std::string> PollResult();
-    [[nodiscard]] std::string GetLastError() const;
+    // Consume el último error una sola vez y vuelve al estado Idle.
+    std::optional<std::string> PollError();
 
   private:
     std::atomic<Status> m_Status{Status::Idle};
