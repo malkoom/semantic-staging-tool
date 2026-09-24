@@ -16,7 +16,7 @@ void LoadModelFilesInDirectory(
     std::unordered_map<std::string, PropModel>& modelsMap) {
     for (const auto& entry : fs::directory_iterator(dirPath)) {
         if (entry.is_directory()) {
-            LoadModelFilesInDirectory(entry.path().c_str(), modelsMap);
+            LoadModelFilesInDirectory(entry.path().string().c_str(), modelsMap);
         }
         if (entry.path().extension() == ".obj" ||
             entry.path().extension() == ".glb") {

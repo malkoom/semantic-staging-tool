@@ -1,3 +1,18 @@
+#if defined(_WIN32)
+#define NOGDI             // Evita conflictos de estructuras GDI
+#define NOUSER            // Opcional si no necesitas User32 directamente
+#define WIN32_LEAN_AND_MEAN
+#endif
+
+#include <raylib.h>
+
+// Si necesitas incluir CPR o windows.h después:
+#if defined(_WIN32)
+    // Raylib ya definió CloseWindow y ShowCursor.
+    // Desactivamos o renombramos las macros de Windows si causan colisión:
+#undef CloseWindow
+#undef ShowCursor
+#endif
 
 #include <string>
 
