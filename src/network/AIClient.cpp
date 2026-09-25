@@ -66,6 +66,7 @@ void AIClient::RequestLayoutAsync(const std::string& endpointUrl,
                     m_ResponseContent =
                         jsonResponse["choices"][0]["message"]["content"]
                             .get<std::string>();
+
                     m_Status.store(Status::Success);
                 } catch (const std::exception& e) {
                     m_ErrorMessage =

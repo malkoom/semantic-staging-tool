@@ -86,7 +86,7 @@ int main() {
         lastAIError.clear();
         // Estructura del request
         nlohmann::json fullPayload = {
-            {"model", "llama-3.1-8b-instant"},
+            {"model", "openai/gpt-oss-120b"},
             {"temperature", 0.2},
             {"messages",
              nlohmann::json::array(
@@ -109,6 +109,10 @@ int main() {
 
         if (auto error = aiManager.PollError()) {
             lastAIError = std::move(*error);
+        }
+
+        if (auto layoutJson = aiManager.PollResult()) {
+            sceneGraph.ApplyLayoutDirectives(*layoutJson);
         }
 
         // --- DRAW ---
