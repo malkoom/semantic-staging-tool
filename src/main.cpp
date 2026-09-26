@@ -1,6 +1,6 @@
 #if defined(_WIN32)
-#define NOGDI             // Evita conflictos de estructuras GDI
-#define NOUSER            // Opcional si no necesitas User32 directamente
+#define NOGDI  // Evita conflictos de estructuras GDI
+#define NOUSER // Opcional si no necesitas User32 directamente
 #define WIN32_LEAN_AND_MEAN
 #endif
 
@@ -8,8 +8,8 @@
 
 // Si necesitas incluir CPR o windows.h después:
 #if defined(_WIN32)
-    // Raylib ya definió CloseWindow y ShowCursor.
-    // Desactivamos o renombramos las macros de Windows si causan colisión:
+// Raylib ya definió CloseWindow y ShowCursor.
+// Desactivamos o renombramos las macros de Windows si causan colisión:
 #undef CloseWindow
 #undef ShowCursor
 #endif
@@ -79,6 +79,9 @@ int main() {
     SceneGraph sceneGraph;
     sceneGraph.Initialize("assets/models");
 
+    // JSON save
+    nlohmann::json currentLayout{};
+
     // AI Client
     AIClient aiManager{};
     std::string lastAIError;
@@ -102,6 +105,7 @@ int main() {
             "https://api.groq.com/openai/v1/chat/completions", apiKey,
             fullPayload);
     };
+
     while (!WindowShouldClose()) {
 
         // --- UPDATE ---
@@ -112,6 +116,7 @@ int main() {
         }
 
         if (auto layoutJson = aiManager.PollResult()) {
+            currentLayout = nlohmann::json::parse(layoutJson.value());
             sceneGraph.ApplyLayoutDirectives(*layoutJson);
         }
 

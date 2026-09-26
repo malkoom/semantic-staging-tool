@@ -1,3 +1,5 @@
+#include <optional>
+
 #include "AIClient.hpp"
 
 namespace {
