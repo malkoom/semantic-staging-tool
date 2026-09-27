@@ -5,6 +5,8 @@
 #include "props/ModelsLoader.hpp"
 #include "props/PropModel.hpp"
 
+#include "utils/Utils.hpp"
+
 void SceneGraph::Initialize(const char* assetsDir) {
     ModelsLoader::LoadModelFilesInDirectory(assetsDir, m_Models);
 }
@@ -211,4 +213,24 @@ bool SceneGraph::ApplyLayoutDirectives(const std::string& layoutJsonStr) {
     }
 
     return true;
+}
+
+bool SceneGraph::ExportSceneToFile(const std::string& filepath) const {
+    nlohmann::json root;
+    root["entities"] = nlohmann::json::array();
+
+    for (const auto& inst : m_Instances) {
+        nlohmann::json entity;
+        entity["instance_id"] = inst.instanceId;
+        entity["prop_id"] = inst.propId;
+        entity["position"] = {{"x", inst.position.x},
+                              {"y", inst.position.y},
+                              {"z", inst.position.z}};
+        entity["rotation_y"] = inst.rotationY;
+        entity["is_static"] = inst.isStatic;
+
+        root["entities"].push_back(std::move(entity));
+    }
+
+    return SaveJsonToFile(filepath, root);
 }

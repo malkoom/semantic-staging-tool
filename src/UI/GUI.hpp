@@ -5,6 +5,8 @@
 #include "imgui.h"
 #include "rlImGui.h"
 
+#include "rendering/SceneGraph.hpp"
+
 class GUI {
   public:
     GUI() { rlImGuiSetup(true); };
@@ -13,7 +15,7 @@ class GUI {
     void DrawEditorUI(float& roomWidth, float& roomDepth, float& scale,
                       std::function<void(std::string& promptText, char* apiKey)>
                           promptCallback,
-                      const std::string& errorMessage) {
+                      const std::string& errorMessage, SceneGraph& sceneGraph) {
         ImGui::SetNextWindowPos(ImVec2(10, 10), ImGuiCond_FirstUseEver);
         ImGui::SetNextWindowSize(ImVec2(340, 420), ImGuiCond_FirstUseEver);
 
@@ -41,6 +43,15 @@ class GUI {
             if (ImGui::Button("Send") && textInputBuffer[0] != '\0') {
                 std::string textString = textInputBuffer;
                 promptCallback(textString, apiKeyBuffer);
+            }
+
+            ImGui::Separator();
+            ImGui::Spacing();
+
+            if (ImGui::Button("Exportar Escena (JSON)")) {
+                if (sceneGraph.ExportSceneToFile("saved_scene.json")) {
+                    // Notificación de éxito
+                }
             }
 
             if (!errorMessage.empty()) {

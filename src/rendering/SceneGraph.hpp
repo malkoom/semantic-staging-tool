@@ -28,6 +28,7 @@ class SceneGraph {
                                         float roomWidth, float roomDepth);
     bool ApplyLayoutDirectives(const std::string& layoutJsonStr);
     void ResolveOverlaps(int maxIterations = 8);
+    bool ExportSceneToFile(const std::string& filepath) const;
     void Draw();
 
   private:

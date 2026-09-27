@@ -135,7 +135,7 @@ int main() {
 
         // Pintar mi objeto de la clase UI
         uiManager.DrawEditorUI(roomWidth, roomDepth, roomScale, promptCallback,
-                               lastAIError);
+                               lastAIError, sceneGraph);
 
         // Finalizar bloque de UI
         rlImGuiEnd();
