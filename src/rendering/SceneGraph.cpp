@@ -1,4 +1,9 @@
+#include <algorithm>
+#include <cctype>
+#include <cmath>
 #include <iostream>
+#include <initializer_list>
+#include <vector>
 
 #include "SceneGraph.hpp"
 
@@ -7,8 +12,70 @@
 
 #include "utils/Utils.hpp"
 
+namespace {
+
+std::string ToLower(std::string value) {
+    std::transform(value.begin(), value.end(), value.begin(),
+                   [](unsigned char c) { return std::tolower(c); });
+    return value;
+}
+
+bool HasAnyToken(const std::string& value,
+                 std::initializer_list<const char*> tokens) {
+    return std::any_of(tokens.begin(), tokens.end(), [&](const char* token) {
+        return value.find(token) != std::string::npos;
+    });
+}
+
+bool IsStructuralAsset(const std::string& propId) {
+    const std::string name = ToLower(propId);
+    return HasAnyToken(name, {"wall", "floor", "ceiling", "window", "door",
+                              "board", "poster"});
+}
+
+// Solo se envían hechos medibles. Inferir el significado de un asset desde
+// su nombre mezclaba muebles con geometría estructural y daba peores layouts.
+nlohmann::json DescribeProp(const std::string& id, const PropModel& model) {
+    BoundingBox bounds = model.GetBounds();
+    return {
+        {"id", id},
+        {"bounding_radius", model.GetRadius()},
+        {"dimensions", {{"width", bounds.max.x - bounds.min.x},
+                        {"height", bounds.max.y - bounds.min.y},
+                        {"depth", bounds.max.z - bounds.min.z}}}
+    };
+}
+
+} // namespace
+
 void SceneGraph::Initialize(const char* assetsDir) {
     ModelsLoader::LoadModelFilesInDirectory(assetsDir, m_Models);
+}
+
+bool SceneGraph::IsPlaceableProp(const std::string& propId) const {
+    return m_Models.contains(propId) && !IsStructuralAsset(propId);
+}
+
+void SceneGraph::ClampToRoom(SceneInstance& instance, float roomWidth,
+                             float roomDepth) const {
+    const BoundingBox bounds = m_Models.at(instance.propId).GetBounds();
+    const float halfWidth = (bounds.max.x - bounds.min.x) * 0.5f;
+    const float halfDepth = (bounds.max.z - bounds.min.z) * 0.5f;
+    const float radians = instance.rotationY * DEG2RAD;
+    const float extentX = std::abs(std::cos(radians)) * halfWidth +
+                          std::abs(std::sin(radians)) * halfDepth;
+    const float extentZ = std::abs(std::sin(radians)) * halfWidth +
+                          std::abs(std::cos(radians)) * halfDepth;
+    const float roomHalfWidth = roomWidth * 0.5f;
+    const float roomHalfDepth = roomDepth * 0.5f;
+    instance.position.x = extentX >= roomHalfWidth
+                              ? 0.0f
+                              : std::clamp(instance.position.x, -roomHalfWidth + extentX,
+                                           roomHalfWidth - extentX);
+    instance.position.z = extentZ >= roomHalfDepth
+                              ? 0.0f
+                              : std::clamp(instance.position.z, -roomHalfDepth + extentZ,
+                                           roomHalfDepth - extentZ);
 }
 
 const nlohmann::json SceneGraph::BuildAIContext(const std::string& userPrompt,
@@ -24,26 +91,34 @@ const nlohmann::json SceneGraph::BuildAIContext(const std::string& userPrompt,
     // 2. Inventario de assets cargados dinámicamente desde m_Models
     context["available_props"] = nlohmann::json::array();
 
+    std::vector<std::string> propNames;
+    propNames.reserve(m_Models.size());
     for (const auto& [name, model] : m_Models) {
-        nlohmann::json propEntry;
-        propEntry["id"] = name;
-
-        // Radio del modelo
-        propEntry["bounding_radius"] = model.GetRadius();
-
-        // Opcional: pasar las dimensiones de la caja para que el LLM entienda
-        // proporciones
-        BoundingBox bounds = model.GetBounds();
-        propEntry["dimensions"] = {{"width", bounds.max.x - bounds.min.x},
-                                   {"height", bounds.max.y - bounds.min.y},
-                                   {"depth", bounds.max.z - bounds.min.z}};
-
-        context["available_props"].push_back(std::move(propEntry));
+        (void)model;
+        propNames.push_back(name);
+    }
+    std::sort(propNames.begin(), propNames.end());
+    for (const auto& name : propNames) {
+        if (IsPlaceableProp(name))
+            context["available_props"].push_back(
+                DescribeProp(name, m_Models.at(name)));
     }
 
     // 3. La intención semántica introducida en ImGui
     context["user_intent"] = userPrompt;
-    context["current_scene"] = currentScene;
+    // La escena existente conserva sus coordenadas y añade únicamente medidas
+    // reales; no se deduce semántica de los nombres de archivo.
+    nlohmann::json enrichedScene = currentScene;
+    enrichedScene["entities"] = nlohmann::json::array();
+    for (const auto& inst : m_Instances) {
+        nlohmann::json entity = DescribeProp(inst.propId, m_Models.at(inst.propId));
+        entity["instance_id"] = inst.instanceId;
+        entity["position"] = {{"x", inst.position.x}, {"y", inst.position.y},
+                              {"z", inst.position.z}};
+        entity["rotation_y"] = inst.rotationY;
+        enrichedScene["entities"].push_back(std::move(entity));
+    }
+    context["current_scene"] = std::move(enrichedScene);
     context["request_mode"] = isExtension ? "add_to_existing_scene"
                                            : "create_new_scene";
 
@@ -61,7 +136,10 @@ void SceneGraph::Draw() {
     }
 }
 
-void SceneGraph::ResolveOverlaps(int maxIterations) {
+void SceneGraph::ResolveOverlaps(float roomWidth, float roomDepth,
+                                 int maxIterations) {
+    for (auto& instance : m_Instances)
+        ClampToRoom(instance, roomWidth, roomDepth);
     if (m_Instances.size() < 2)
         return;
 
@@ -71,32 +149,54 @@ void SceneGraph::ResolveOverlaps(int maxIterations) {
                 auto& a = m_Instances[i];
                 auto& b = m_Instances[j];
 
-                // Distancia en el plano XZ (suelo)
+                // Rectángulos alineados a los ejes que contienen al prop
+                // rotado. Es mucho más fiel que el círculo medio anterior.
+                const BoundingBox aBounds = m_Models.at(a.propId).GetBounds();
+                const BoundingBox bBounds = m_Models.at(b.propId).GetBounds();
+                const float aRadians = a.rotationY * DEG2RAD;
+                const float bRadians = b.rotationY * DEG2RAD;
+                const float aHalfWidth = (aBounds.max.x - aBounds.min.x) * 0.5f;
+                const float aHalfDepth = (aBounds.max.z - aBounds.min.z) * 0.5f;
+                const float bHalfWidth = (bBounds.max.x - bBounds.min.x) * 0.5f;
+                const float bHalfDepth = (bBounds.max.z - bBounds.min.z) * 0.5f;
+                const float aExtentX = std::abs(std::cos(aRadians)) * aHalfWidth +
+                                       std::abs(std::sin(aRadians)) * aHalfDepth;
+                const float aExtentZ = std::abs(std::sin(aRadians)) * aHalfWidth +
+                                       std::abs(std::cos(aRadians)) * aHalfDepth;
+                const float bExtentX = std::abs(std::cos(bRadians)) * bHalfWidth +
+                                       std::abs(std::sin(bRadians)) * bHalfDepth;
+                const float bExtentZ = std::abs(std::sin(bRadians)) * bHalfWidth +
+                                       std::abs(std::cos(bRadians)) * bHalfDepth;
                 float dx = a.position.x - b.position.x;
                 float dz = a.position.z - b.position.z;
-                float distSq = dx * dx + dz * dz;
-                float minDist = a.boundingRadius + b.boundingRadius;
+                const float overlapX = aExtentX + bExtentX - std::abs(dx);
+                const float overlapZ = aExtentZ + bExtentZ - std::abs(dz);
 
-                if (distSq < minDist * minDist && distSq > 0.0001f) {
-                    float dist = std::sqrt(distSq);
-                    float overlap = minDist - dist;
-                    float nx = dx / dist;
-                    float nz = dz / dist;
+                if (overlapX > 0.0f && overlapZ > 0.0f) {
+                    const bool resolveX = overlapX <= overlapZ;
+                    const float overlap = resolveX ? overlapX : overlapZ;
+                    const float delta = (resolveX ? dx : dz) < 0.0f ? -overlap : overlap;
 
                     // Resolución según masa/fijación estática
                     if (a.isStatic && !b.isStatic) {
-                        b.position.x -= nx * overlap;
-                        b.position.z -= nz * overlap;
+                        if (resolveX) b.position.x -= delta;
+                        else b.position.z -= delta;
                     } else if (!a.isStatic && b.isStatic) {
-                        a.position.x += nx * overlap;
-                        a.position.z += nz * overlap;
+                        if (resolveX) a.position.x += delta;
+                        else a.position.z += delta;
                     } else if (!a.isStatic && !b.isStatic) {
                         float halfOverlap = overlap * 0.5f;
-                        a.position.x += nx * halfOverlap;
-                        a.position.z += nz * halfOverlap;
-                        b.position.x -= nx * halfOverlap;
-                        b.position.z -= nz * halfOverlap;
+                        const float halfDelta = delta < 0.0f ? -halfOverlap : halfOverlap;
+                        if (resolveX) {
+                            a.position.x += halfDelta;
+                            b.position.x -= halfDelta;
+                        } else {
+                            a.position.z += halfDelta;
+                            b.position.z -= halfDelta;
+                        }
                     }
+                    ClampToRoom(a, roomWidth, roomDepth);
+                    ClampToRoom(b, roomWidth, roomDepth);
                 }
             }
         }
@@ -104,7 +204,8 @@ void SceneGraph::ResolveOverlaps(int maxIterations) {
 }
 
 bool SceneGraph::ApplyLayoutDirectives(const std::string& layoutJsonStr,
-                                       bool append) {
+                                       bool append, float roomWidth,
+                                       float roomDepth) {
     nlohmann::json root;
     try {
         root = nlohmann::json::parse(layoutJsonStr);
@@ -138,8 +239,9 @@ bool SceneGraph::ApplyLayoutDirectives(const std::string& layoutJsonStr,
 
         // Verificar que el prop existe en el catálogo cargado
         auto itModel = m_Models.find(propId);
-        if (itModel == m_Models.end()) {
-            std::cerr << "[SceneGraph] Prop desconocido omitido: " << propId
+        if (!IsPlaceableProp(propId)) {
+            std::cerr << "[SceneGraph] Prop desconocido o no colocable omitido: "
+                      << propId
                       << "\n";
             continue;
         }
@@ -191,7 +293,7 @@ bool SceneGraph::ApplyLayoutDirectives(const std::string& layoutJsonStr,
     }
 
     // 3. Resolver colisiones en el suelo (XZ) antes de montar cosas encima
-    ResolveOverlaps(12);
+    ResolveOverlaps(roomWidth, roomDepth, 12);
 
     // 4. Segunda pasada: calcular la posición de los objetos sobre superficies
     for (auto& child : deferredChildren) {
@@ -205,7 +307,26 @@ bool SceneGraph::ApplyLayoutDirectives(const std::string& layoutJsonStr,
         if (parentIt != m_Instances.end()) {
             const auto& parentModel = m_Models.at(parentIt->propId);
             BoundingBox parentBox = parentModel.GetBounds();
+            const BoundingBox childBox =
+                m_Models.at(child.instance.propId).GetBounds();
             float parentTopY = parentIt->position.y + parentBox.max.y;
+
+            // position_hint es un offset local; no puede sacar al hijo fuera
+            // de la superficie del padre.
+            const float parentHalfWidth =
+                (parentBox.max.x - parentBox.min.x) * 0.5f;
+            const float parentHalfDepth =
+                (parentBox.max.z - parentBox.min.z) * 0.5f;
+            const float childHalfWidth =
+                (childBox.max.x - childBox.min.x) * 0.5f;
+            const float childHalfDepth =
+                (childBox.max.z - childBox.min.z) * 0.5f;
+            child.localOffset.x = std::clamp(
+                child.localOffset.x, -std::max(0.0f, parentHalfWidth - childHalfWidth),
+                std::max(0.0f, parentHalfWidth - childHalfWidth));
+            child.localOffset.y = std::clamp(
+                child.localOffset.y, -std::max(0.0f, parentHalfDepth - childHalfDepth),
+                std::max(0.0f, parentHalfDepth - childHalfDepth));
 
             // Rotar el offset local según la orientación del padre
             float rad = parentIt->rotationY * DEG2RAD;
@@ -218,7 +339,7 @@ bool SceneGraph::ApplyLayoutDirectives(const std::string& layoutJsonStr,
                 child.localOffset.x * sinR + child.localOffset.y * cosR;
 
             child.instance.position = {parentIt->position.x + worldOffsetX,
-                                       parentTopY,
+                                       parentTopY - childBox.min.y,
                                        parentIt->position.z + worldOffsetZ};
             child.instance.rotationY +=
                 parentIt->rotationY; // Sumar rotación del padre
@@ -226,7 +347,8 @@ bool SceneGraph::ApplyLayoutDirectives(const std::string& layoutJsonStr,
             m_Instances.push_back(std::move(child.instance));
         } else {
             // Si el padre no existe, colocarlo en el suelo por defecto
-            child.instance.position = {child.localOffset.x, 0.0f,
+            const BoundingBox childBox = m_Models.at(child.instance.propId).GetBounds();
+            child.instance.position = {child.localOffset.x, -childBox.min.y,
                                        child.localOffset.y};
             m_Instances.push_back(std::move(child.instance));
         }

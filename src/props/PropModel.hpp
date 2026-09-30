@@ -27,6 +27,9 @@ class PropModel {
 
     PropModel(PropModel&& other) noexcept {
         m_Model = other.m_Model;
+        m_LocalBounds = other.m_LocalBounds;
+        m_BoundingRadius = other.m_BoundingRadius;
+        m_IsStatic = other.m_IsStatic;
         other.m_Model = {0};
     }
 
@@ -36,6 +39,9 @@ class PropModel {
                 UnloadModel(m_Model);
             }
             m_Model = other.m_Model;
+            m_LocalBounds = other.m_LocalBounds;
+            m_BoundingRadius = other.m_BoundingRadius;
+            m_IsStatic = other.m_IsStatic;
             other.m_Model = {0};
         }
         return *this;

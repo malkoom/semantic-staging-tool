@@ -29,8 +29,9 @@ class SceneGraph {
                                         const nlohmann::json& currentScene,
                                         bool isExtension);
     bool ApplyLayoutDirectives(const std::string& layoutJsonStr,
-                               bool append = false);
-    void ResolveOverlaps(int maxIterations = 8);
+                               bool append, float roomWidth, float roomDepth);
+    void ResolveOverlaps(float roomWidth, float roomDepth,
+                         int maxIterations = 8);
     bool ExportSceneToFile(const std::string& filepath) const;
     nlohmann::json GenerateJSON() const;
     bool IsEmpty() const;
@@ -38,6 +39,9 @@ class SceneGraph {
     void Draw();
 
   private:
+    bool IsPlaceableProp(const std::string& propId) const;
+    void ClampToRoom(SceneInstance& instance, float roomWidth,
+                     float roomDepth) const;
     std::unordered_map<std::string, PropModel> m_Models;
     std::vector<SceneInstance> m_Instances;
 };

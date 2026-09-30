@@ -57,6 +57,8 @@ The JSON must adhere strictly to this schema:
 ### PLACEMENT LOGIC:
 - "ground": Objects placed on the floor. 'relative_to' must be empty (""). 'position_hint' is world (X, Z).
 - "on_top_of": Small props placed on surfaces (desks, tables). 'relative_to' must be the 'instance_id' of the surface prop. 'position_hint' is a local offset from that surface's center.
+- Use dimensions and bounding_radius to estimate the scale of each prop and avoid obviously overlapping ground objects.
+- current_scene contains fixed, already-placed entities with their actual positions and dimensions. In an incremental request, use it only to avoid collisions or as the parent of an explicitly requested on_top_of placement.
 
 ### INCREMENTAL REQUESTS:
 - The input includes "request_mode" and "current_scene".
@@ -126,7 +128,8 @@ int main() {
 
         if (auto layoutJson = aiManager.PollResult()) {
             currentLayout = nlohmann::json::parse(layoutJson.value());
-            sceneGraph.ApplyLayoutDirectives(*layoutJson, !sceneGraph.IsEmpty());
+            sceneGraph.ApplyLayoutDirectives(*layoutJson, !sceneGraph.IsEmpty(),
+                                             roomWidth, roomDepth);
         }
 
         // --- DRAW ---

@@ -19,7 +19,8 @@ void LoadModelFilesInDirectory(
             LoadModelFilesInDirectory(entry.path().string().c_str(), modelsMap);
         }
         if (entry.path().extension() == ".obj" ||
-            entry.path().extension() == ".glb") {
+            entry.path().extension() == ".glb" ||
+            entry.path().extension() == ".gltf") {
             modelsMap.try_emplace(
                 entry.path().stem().string(), // Clave (std::string)
                 entry.path()
