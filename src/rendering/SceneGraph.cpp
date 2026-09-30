@@ -13,7 +13,9 @@ void SceneGraph::Initialize(const char* assetsDir) {
 
 const nlohmann::json SceneGraph::BuildAIContext(const std::string& userPrompt,
                                                 float roomWidth,
-                                                float roomDepth) {
+                                                float roomDepth,
+                                                const nlohmann::json& currentScene,
+                                                bool isExtension) {
     nlohmann::json context;
 
     // 1. Límites del plano horizontal XZ
@@ -41,6 +43,9 @@ const nlohmann::json SceneGraph::BuildAIContext(const std::string& userPrompt,
 
     // 3. La intención semántica introducida en ImGui
     context["user_intent"] = userPrompt;
+    context["current_scene"] = currentScene;
+    context["request_mode"] = isExtension ? "add_to_existing_scene"
+                                           : "create_new_scene";
 
     return context;
 }
@@ -98,7 +103,8 @@ void SceneGraph::ResolveOverlaps(int maxIterations) {
     }
 }
 
-bool SceneGraph::ApplyLayoutDirectives(const std::string& layoutJsonStr) {
+bool SceneGraph::ApplyLayoutDirectives(const std::string& layoutJsonStr,
+                                       bool append) {
     nlohmann::json root;
     try {
         root = nlohmann::json::parse(layoutJsonStr);
@@ -112,8 +118,11 @@ bool SceneGraph::ApplyLayoutDirectives(const std::string& layoutJsonStr) {
         return false;
     }
 
-    // 1. Limpiar instancias previas
-    m_Instances.clear();
+    // Una ampliación conserva las instancias existentes; una creación las
+    // reemplaza completamente.
+    if (!append) {
+        m_Instances.clear();
+    }
 
     // Estructura temporal para objetos secundarios que van "on_top_of"
     struct DeferredChild {
@@ -154,6 +163,17 @@ bool SceneGraph::ApplyLayoutDirectives(const std::string& layoutJsonStr) {
 
         // Clasificar objetos grandes como anclas estáticas
         inst.isStatic = (inst.boundingRadius > 1.2f);
+
+        const bool duplicateId =
+            append && std::any_of(m_Instances.begin(), m_Instances.end(),
+                                  [&](const SceneInstance& existing) {
+                                      return existing.instanceId == inst.instanceId;
+                                  });
+        if (duplicateId) {
+            std::cerr << "[SceneGraph] ID ya existente omitido: "
+                      << inst.instanceId << "\n";
+            continue;
+        }
 
         if (placement == "ground") {
             // El pivote XZ inicial viene directo de la IA
@@ -216,6 +236,11 @@ bool SceneGraph::ApplyLayoutDirectives(const std::string& layoutJsonStr) {
 }
 
 bool SceneGraph::ExportSceneToFile(const std::string& filepath) const {
+
+    return SaveJsonToFile(filepath, GenerateJSON());
+}
+
+nlohmann::json SceneGraph::GenerateJSON() const {
     nlohmann::json root;
     root["entities"] = nlohmann::json::array();
 
@@ -232,5 +257,9 @@ bool SceneGraph::ExportSceneToFile(const std::string& filepath) const {
         root["entities"].push_back(std::move(entity));
     }
 
-    return SaveJsonToFile(filepath, root);
+    return root;
 }
+
+bool SceneGraph::IsEmpty() const { return m_Instances.empty(); }
+
+void SceneGraph::Clear() { m_Instances.clear(); }

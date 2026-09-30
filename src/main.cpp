@@ -56,7 +56,12 @@ The JSON must adhere strictly to this schema:
 
 ### PLACEMENT LOGIC:
 - "ground": Objects placed on the floor. 'relative_to' must be empty (""). 'position_hint' is world (X, Z).
-- "on_top_of": Small props placed on surfaces (desks, tables). 'relative_to' must be the 'instance_id' of the surface prop. 'position_hint' is a local offset from that surface's center.)";
+- "on_top_of": Small props placed on surfaces (desks, tables). 'relative_to' must be the 'instance_id' of the surface prop. 'position_hint' is a local offset from that surface's center.
+
+### INCREMENTAL REQUESTS:
+- The input includes "request_mode" and "current_scene".
+- When request_mode is "create_new_scene", return all requested entities.
+- When request_mode is "add_to_existing_scene", current_scene contains entities already placed. Preserve them: return ONLY new entities to add, with instance_id values different from every existing one. You may use an existing instance_id as relative_to for an "on_top_of" entity.)";
 
 int main() {
     // Inicialización de la ventana (Raylib)
@@ -87,7 +92,9 @@ int main() {
     std::string lastAIError;
     auto promptCallback = [&](std::string& promptText, char* apiKey) {
         lastAIError.clear();
-        // Estructura del request
+        const bool extendScene = !sceneGraph.IsEmpty();
+        const nlohmann::json currentScene = sceneGraph.GenerateJSON();
+
         nlohmann::json fullPayload = {
             {"model", "openai/gpt-oss-120b"},
             {"temperature", 0.2},
@@ -96,7 +103,9 @@ int main() {
                  {{{"role", "system"}, {"content", SYSTEM_PROMPT}},
                   {{"role", "user"},
                    {"content",
-                    sceneGraph.BuildAIContext(promptText, roomWidth, roomDepth)
+                    sceneGraph
+                        .BuildAIContext(promptText, roomWidth, roomDepth,
+                                        currentScene, extendScene)
                         .dump()}}})},
             {"response_format", {{"type", "json_object"}}}};
 
@@ -117,7 +126,7 @@ int main() {
 
         if (auto layoutJson = aiManager.PollResult()) {
             currentLayout = nlohmann::json::parse(layoutJson.value());
-            sceneGraph.ApplyLayoutDirectives(*layoutJson);
+            sceneGraph.ApplyLayoutDirectives(*layoutJson, !sceneGraph.IsEmpty());
         }
 
         // --- DRAW ---

@@ -25,10 +25,16 @@ class SceneGraph {
 
     void Initialize(const char* assetsDir);
     const nlohmann::json BuildAIContext(const std::string& userPrompt,
-                                        float roomWidth, float roomDepth);
-    bool ApplyLayoutDirectives(const std::string& layoutJsonStr);
+                                        float roomWidth, float roomDepth,
+                                        const nlohmann::json& currentScene,
+                                        bool isExtension);
+    bool ApplyLayoutDirectives(const std::string& layoutJsonStr,
+                               bool append = false);
     void ResolveOverlaps(int maxIterations = 8);
     bool ExportSceneToFile(const std::string& filepath) const;
+    nlohmann::json GenerateJSON() const;
+    bool IsEmpty() const;
+    void Clear();
     void Draw();
 
   private:

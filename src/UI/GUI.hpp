@@ -45,12 +45,17 @@ class GUI {
                 promptCallback(textString, apiKeyBuffer);
             }
 
+            if (ImGui::Button("Clear")) {
+                sceneGraph.Clear();
+            }
+
             ImGui::Separator();
             ImGui::Spacing();
 
             if (ImGui::Button("Exportar Escena (JSON)")) {
                 if (sceneGraph.ExportSceneToFile("saved_scene.json")) {
-                    // Notificación de éxito
+                    ImGui::Spacing();
+                    ImGui::TextColored(ImVec4(0, 1, 0, 1), "JSON saved");
                 }
             }
 
