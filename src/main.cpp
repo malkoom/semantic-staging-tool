@@ -1,3 +1,5 @@
+#include "UI/GuizmoManager.hpp"
+
 #if defined(_WIN32)
 #define NOGDI  // Evita conflictos de estructuras GDI
 #define NOUSER // Opcional si no necesitas User32 directamente
@@ -78,9 +80,10 @@ int main() {
     float roomDepth = 10;
     float roomScale = 1;
     std::string userPrompt = "";
+    GuizmoManager guizmoManager;
+
     // Camara
     CameraController camera{};
-    DisableCursor();
 
     // Objects
     SceneGraph sceneGraph;
@@ -120,7 +123,9 @@ int main() {
     while (!WindowShouldClose()) {
 
         // --- UPDATE ---
-        camera.Update();
+        // No mover la cámara mientras se arrastra un manipulador.
+        if (!guizmoManager.IsUsing())
+            camera.Update();
 
         if (auto error = aiManager.PollError()) {
             lastAIError = std::move(*error);
@@ -132,6 +137,8 @@ int main() {
                                              roomWidth, roomDepth);
         }
 
+        guizmoManager.TryHitObject(sceneGraph, camera);
+
         // --- DRAW ---
         BeginDrawing();
         ClearBackground(DARKGRAY);
@@ -139,6 +146,7 @@ int main() {
         // Renderizado 3D
         BeginMode3D(camera.GetCamera());
         DrawGrid(20, 1.0f);
+
         sceneGraph.Draw();
         EndMode3D();
 
@@ -148,6 +156,8 @@ int main() {
         // Pintar mi objeto de la clase UI
         uiManager.DrawEditorUI(roomWidth, roomDepth, roomScale, promptCallback,
                                lastAIError, sceneGraph);
+        // Control de Guizmos
+        guizmoManager.Update(camera);
 
         // Finalizar bloque de UI
         rlImGuiEnd();

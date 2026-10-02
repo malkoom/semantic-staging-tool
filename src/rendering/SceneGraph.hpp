@@ -4,6 +4,9 @@
 
 #include <string>
 #include <unordered_map>
+#include <vector>
+
+#include "raylib.h"
 
 #include "../props/PropModel.hpp"
 
@@ -28,12 +31,17 @@ class SceneGraph {
                                         float roomWidth, float roomDepth,
                                         const nlohmann::json& currentScene,
                                         bool isExtension);
-    bool ApplyLayoutDirectives(const std::string& layoutJsonStr,
-                               bool append, float roomWidth, float roomDepth);
+    bool ApplyLayoutDirectives(const std::string& layoutJsonStr, bool append,
+                               float roomWidth, float roomDepth);
     void ResolveOverlaps(float roomWidth, float roomDepth,
                          int maxIterations = 8);
     bool ExportSceneToFile(const std::string& filepath) const;
+
     nlohmann::json GenerateJSON() const;
+    std::vector<SceneInstance>& GetInstances();
+    const std::vector<SceneInstance>& GetInstances() const;
+    BoundingBox GetModelBounds(std::string& propId) const;
+
     bool IsEmpty() const;
     void Clear();
     void Draw();

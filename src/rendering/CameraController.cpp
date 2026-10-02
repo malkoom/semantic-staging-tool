@@ -17,7 +17,6 @@ CameraController::CameraController() {
     m_Yaw = std::atan2(forward.z, forward.x);
     m_Pitch = std::asin(forward.y);
 
-    DisableCursor();
 }
 
 CameraController::~CameraController() { EnableCursor(); }

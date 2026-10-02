@@ -50,6 +50,24 @@ FetchContent_Declare(rlimgui
 )
 FetchContent_MakeAvailable(imgui rlimgui)
 
+# --- ImGuizmo -----
+
+FetchContent_Declare(
+    imguizmo
+    GIT_REPOSITORY https://github.com/CedricGuillemet/ImGuizmo.git
+    GIT_TAG        master
+)
+FetchContent_GetProperties(imguizmo)
+if(NOT imguizmo_POPULATED)
+    FetchContent_MakeAvailable(imguizmo)
+
+    # ImGuizmo necesita saber dónde está imgui.h
+    target_include_directories(imguizmo PUBLIC
+        ${imguizmo_SOURCE_DIR}
+        ${imgui_SOURCE_DIR} # Ruta a las cabeceras de ImGui/rlImGui
+    )
+endif()
+
 # --- Fuentes del proyecto ---
 file(GLOB_RECURSE SRC_FILES CONFIGURE_DEPENDS
     "src/*.cpp"
@@ -78,6 +96,7 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     raylib
     cpr::cpr
     nlohmann_json::nlohmann_json
+    imguizmo::imguizmo
 )
 
 # Copia la carpeta assets al directorio de salida del ejecutable tras compilar
