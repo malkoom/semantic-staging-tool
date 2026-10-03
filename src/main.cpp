@@ -1,3 +1,5 @@
+#include "imgui.h"
+
 #include "UI/GuizmoManager.hpp"
 
 #if defined(_WIN32)
@@ -71,6 +73,8 @@ int main() {
     // Inicialización de la ventana (Raylib)
     const int screenWidth = 1280;
     const int screenHeight = 720;
+    SetConfigFlags(FLAG_WINDOW_RESIZABLE | FLAG_WINDOW_MINIMIZED |
+                   FLAG_MSAA_4X_HINT);
     InitWindow(screenWidth, screenHeight, "Semantic Staging Tool");
     SetTargetFPS(60);
 
@@ -121,11 +125,13 @@ int main() {
     };
 
     while (!WindowShouldClose()) {
-
         // --- UPDATE ---
         // No mover la cámara mientras se arrastra un manipulador.
-        if (!guizmoManager.IsUsing())
+        if (!guizmoManager.IsUsing() && IsMouseButtonDown(MOUSE_RIGHT_BUTTON)) {
+            HideCursor();
             camera.Update();
+        } else
+            ShowCursor();
 
         if (auto error = aiManager.PollError()) {
             lastAIError = std::move(*error);

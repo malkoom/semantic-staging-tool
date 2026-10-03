@@ -16,12 +16,12 @@ CameraController::CameraController() {
         Vector3Normalize(Vector3Subtract(m_Camera.target, m_Camera.position));
     m_Yaw = std::atan2(forward.z, forward.x);
     m_Pitch = std::asin(forward.y);
-
 }
 
 CameraController::~CameraController() { EnableCursor(); }
 
 void CameraController::Update() {
+
     const Vector2 mouseDelta = GetMouseDelta();
     m_Yaw += mouseDelta.x * m_MouseSensitivity;
     m_Pitch = Clamp(m_Pitch - mouseDelta.y * m_MouseSensitivity, -1.55f, 1.55f);
