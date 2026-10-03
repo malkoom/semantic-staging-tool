@@ -242,6 +242,7 @@ bool SceneGraph::ApplyLayoutDirectives(const std::string& layoutJsonStr,
         SceneInstance instance;
         std::string parentId;
         Vector2 localOffset;
+        bool updatesExisting;
     };
     std::vector<DeferredChild> deferredChildren;
 
@@ -280,17 +281,13 @@ bool SceneGraph::ApplyLayoutDirectives(const std::string& layoutJsonStr,
         // Los props con una huella grande sirven de anclas al resolver solapes.
         inst.isStatic = (width * depth > 1.5f);
 
-        const bool duplicateId =
-            append &&
-            std::any_of(m_Instances.begin(), m_Instances.end(),
-                        [&](const SceneInstance& existing) {
-                            return existing.instanceId == inst.instanceId;
-                        });
-        if (duplicateId) {
-            std::cerr << "[SceneGraph] ID ya existente omitido: "
-                      << inst.instanceId << "\n";
-            continue;
-        }
+        auto existingIt =
+            append ? std::find_if(m_Instances.begin(), m_Instances.end(),
+                                  [&](const SceneInstance& existing) {
+                                      return existing.instanceId == inst.instanceId;
+                                  })
+                   : m_Instances.end();
+        const bool updatesExisting = existingIt != m_Instances.end();
 
         if (placement == "ground") {
             // El pivote XZ inicial viene directo de la IA
@@ -300,10 +297,16 @@ bool SceneGraph::ApplyLayoutDirectives(const std::string& layoutJsonStr,
                                            // sube la mitad de la altura
             inst.position = {posHint.x, pivotOffsetY, posHint.y};
 
-            m_Instances.push_back(std::move(inst));
+            // En una solicitud incremental, el mismo instance_id representa
+            // una edición de la instancia, no un duplicado que deba omitirse.
+            if (updatesExisting)
+                *existingIt = std::move(inst);
+            else
+                m_Instances.push_back(std::move(inst));
         } else if (placement == "on_top_of") {
             std::string parentId = item.value("relative_to", "");
-            deferredChildren.push_back({std::move(inst), parentId, posHint});
+            deferredChildren.push_back(
+                {std::move(inst), parentId, posHint, updatesExisting});
         }
     }
 
@@ -361,14 +364,40 @@ bool SceneGraph::ApplyLayoutDirectives(const std::string& layoutJsonStr,
             child.instance.rotationY +=
                 parentIt->rotationY; // Sumar rotación del padre
 
-            m_Instances.push_back(std::move(child.instance));
+            if (child.updatesExisting) {
+                auto existingIt =
+                    std::find_if(m_Instances.begin(), m_Instances.end(),
+                                 [&](const SceneInstance& inst) {
+                                     return inst.instanceId ==
+                                            child.instance.instanceId;
+                                 });
+                if (existingIt != m_Instances.end())
+                    *existingIt = std::move(child.instance);
+                else
+                    m_Instances.push_back(std::move(child.instance));
+            } else {
+                m_Instances.push_back(std::move(child.instance));
+            }
         } else {
             // Si el padre no existe, colocarlo en el suelo por defecto
             const BoundingBox childBox =
                 m_Models.at(child.instance.propId).GetBounds();
             child.instance.position = {child.localOffset.x, -childBox.min.y,
                                        child.localOffset.y};
-            m_Instances.push_back(std::move(child.instance));
+            if (child.updatesExisting) {
+                auto existingIt =
+                    std::find_if(m_Instances.begin(), m_Instances.end(),
+                                 [&](const SceneInstance& inst) {
+                                     return inst.instanceId ==
+                                            child.instance.instanceId;
+                                 });
+                if (existingIt != m_Instances.end())
+                    *existingIt = std::move(child.instance);
+                else
+                    m_Instances.push_back(std::move(child.instance));
+            } else {
+                m_Instances.push_back(std::move(child.instance));
+            }
         }
     }
 
@@ -419,9 +448,12 @@ SceneGraph::GetModels() const {
     return m_Models;
 }
 
-bool SceneGraph::AddManualInstance(const std::string& propId,
-                                   Vector3 position, float roomWidth,
-                                   float roomDepth) {
+bool SceneGraph::AddManualInstance(const std::string& propId, Vector3 position,
+                                   float roomWidth, float roomDepth) {
+
+    // FIXME: Al añadir instancias manuales no se tienen en cuenta para el
+    // prompt del llm
+
     if (!IsPlaceableProp(propId))
         return false;
 
@@ -438,8 +470,7 @@ bool SceneGraph::AddManualInstance(const std::string& propId,
 
     // El asset puede reutilizarse; cada colocación necesita un ID propio.
     for (size_t suffix = 1;; ++suffix) {
-        inst.instanceId = "manual_" + propId + "_" +
-                          std::to_string(suffix);
+        inst.instanceId = "manual_" + propId + "_" + std::to_string(suffix);
         const bool exists = std::any_of(
             m_Instances.begin(), m_Instances.end(), [&](const auto& existing) {
                 return existing.instanceId == inst.instanceId;

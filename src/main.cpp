@@ -62,12 +62,12 @@ The JSON must adhere strictly to this schema:
 - "ground": Objects placed on the floor. 'relative_to' must be empty (""). 'position_hint' is world (X, Z).
 - "on_top_of": Small props placed on surfaces (desks, tables). 'relative_to' must be the 'instance_id' of the surface prop. 'position_hint' is a local offset from that surface's center.
 - Use dimensions to estimate the scale of each prop and avoid obviously overlapping ground objects.
-- current_scene contains fixed, already-placed entities with their actual positions and dimensions. In an incremental request, use it only to avoid collisions or as the parent of an explicitly requested on_top_of placement.
+- current_scene contains already-placed entities with their actual positions and dimensions. In an incremental request, use it to avoid collisions, as the parent of an explicitly requested on_top_of placement, or to edit an existing entity.
 
 ### INCREMENTAL REQUESTS:
 - The input includes "request_mode" and "current_scene".
 - When request_mode is "create_new_scene", return all requested entities.
-- When request_mode is "add_to_existing_scene", current_scene contains entities already placed. Preserve them: return ONLY new entities to add, with instance_id values different from every existing one. You may use an existing instance_id as relative_to for an "on_top_of" entity.)";
+- When request_mode is "add_to_existing_scene", return only new entities or entities that must change. To edit an entity, return it with its existing instance_id and its desired placement_type, position_hint, rotation_y, and relative_to. Do not return unchanged entities. Do not delete entities.)";
 
 int main() {
     // Inicialización de la ventana (Raylib)

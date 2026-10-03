@@ -49,7 +49,7 @@ On multi-configuration generators such as Visual Studio, the executable may inst
 4. Describe the desired setup in **Prompt**. For example: `Arrange a cosy study area with a desk, chair, lamp, books, and a bookshelf.`
 5. Select **Send** and wait for the scene to appear.
 
-The first successful request replaces the scene. Once a scene contains objects, later requests are treated as additions: existing objects are preserved and the model receives their positions to help it avoid conflicts. Use **Clear** before sending a prompt when you want to start over.
+The first successful request replaces the scene. Once a scene contains objects, later requests can add props or edit an existing prop by referring to its instance ID; the model receives the current positions and dimensions to resolve the requested change. Use **Clear** before sending a prompt when you want to start over.
 
 The generator can only choose props that the application found under `assets/models`. Structural assets—such as walls, floors, ceilings, doors, windows, boards, and posters—are deliberately excluded from generated prop choices.
 
