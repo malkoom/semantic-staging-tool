@@ -13,11 +13,6 @@ class PropModel {
         m_Model = LoadModel(filePath);
         m_LocalBounds = GetModelBoundingBox(m_Model);
 
-        float width = m_LocalBounds.max.x - m_LocalBounds.min.x;
-        float depth = m_LocalBounds.max.z - m_LocalBounds.min.z;
-
-        // Radio medio proyectado en XZ
-        m_BoundingRadius = 0.25f * (width + depth);
     };
     ~PropModel() { UnloadModel(m_Model); };
 
@@ -28,7 +23,6 @@ class PropModel {
     PropModel(PropModel&& other) noexcept {
         m_Model = other.m_Model;
         m_LocalBounds = other.m_LocalBounds;
-        m_BoundingRadius = other.m_BoundingRadius;
         m_IsStatic = other.m_IsStatic;
         other.m_Model = {0};
     }
@@ -40,7 +34,6 @@ class PropModel {
             }
             m_Model = other.m_Model;
             m_LocalBounds = other.m_LocalBounds;
-            m_BoundingRadius = other.m_BoundingRadius;
             m_IsStatic = other.m_IsStatic;
             other.m_Model = {0};
         }
@@ -49,7 +42,6 @@ class PropModel {
 
     // Getters
     const Model& GetModel() const { return m_Model; }
-    const float GetRadius() const { return m_BoundingRadius; }
     const BoundingBox GetBounds() const { return m_LocalBounds; }
     const bool IsStatic() const { return m_IsStatic; }
 
@@ -58,6 +50,5 @@ class PropModel {
   private:
     Model m_Model{};
     BoundingBox m_LocalBounds{};
-    float m_BoundingRadius{0.5f};
     float m_IsStatic{false};
 };

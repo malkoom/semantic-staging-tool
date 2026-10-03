@@ -1,3 +1,6 @@
+#include <algorithm>
+#include <vector>
+
 #include "GUI.hpp"
 
 #include "imgui.h"
@@ -9,6 +12,7 @@ void GUI::DrawEditorUI(
     float& roomWidth, float& roomDepth, float& scale,
     std::function<void(std::string& promptText, char* apiKey)> promptCallback,
     const std::string& errorMessage, SceneGraph& sceneGraph) {
+
     ImGui::SetNextWindowPos(ImVec2(10, 10), ImGuiCond_FirstUseEver);
     ImGui::SetNextWindowSize(ImVec2(340, 420), ImGuiCond_FirstUseEver);
 
@@ -51,6 +55,13 @@ void GUI::DrawEditorUI(
             }
         }
 
+        ImGui::Separator();
+        ImGui::Spacing();
+
+        if (ImGui::Button("Asset Panel")) {
+            m_AssetPanelOpen = true;
+        }
+
         if (!errorMessage.empty()) {
             ImGui::Spacing();
             ImGui::TextColored(ImVec4(1.0f, 0.35f, 0.35f, 1.0f),
@@ -60,4 +71,38 @@ void GUI::DrawEditorUI(
 
         ImGui::End();
     }
+
+    if (m_AssetPanelOpen)
+        DrawAssetPanel(sceneGraph, roomWidth, roomDepth);
+}
+
+void GUI::DrawAssetPanel(SceneGraph& sceneGraph, float roomWidth,
+                         float roomDepth) {
+
+    ImGui::SetNextWindowPos(ImVec2(360, 10), ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowSize(ImVec2(260, 420), ImGuiCond_FirstUseEver);
+    if (!ImGui::Begin("Assets", &m_AssetPanelOpen)) {
+        ImGui::End();
+        return;
+    }
+
+    ImGui::TextDisabled("Add an asset at the centre of the room");
+    ImGui::Separator();
+
+    std::vector<std::string> propIds;
+    for (const auto& [propId, model] : sceneGraph.GetModels()) {
+        (void)model;
+        if (sceneGraph.IsPlaceableProp(propId))
+            propIds.push_back(propId);
+    }
+    std::sort(propIds.begin(), propIds.end());
+
+    for (const auto& propId : propIds) {
+        if (ImGui::Button(propId.c_str(), ImVec2(-1.0f, 0.0f))) {
+            sceneGraph.AddManualInstance(propId, {0.0f, 0.0f, 0.0f},
+                                         roomWidth, roomDepth);
+        }
+    }
+
+    ImGui::End();
 }

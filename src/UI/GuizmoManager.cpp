@@ -1,6 +1,9 @@
+#include <algorithm>
 #include <iostream>
 
 #include "GuizmoManager.hpp"
+
+#include "raylib.h"
 
 bool GuizmoManager::TryHitObject(SceneGraph& sceneGraph,
                                  CameraController& cameraController) {
@@ -8,7 +11,7 @@ bool GuizmoManager::TryHitObject(SceneGraph& sceneGraph,
         !ImGui::GetIO().WantCaptureMouse) {
         Ray ray = GetMouseRay(GetMousePosition(), cameraController.GetCamera());
         float closestDist = 100000.0f;
-        m_CurrentInst = nullptr;
+        m_CurrentInstanceId.clear();
 
         // Recorrer instancias para ver a cuál hemos hecho clic
         for (size_t i = 0; i < sceneGraph.GetInstances().size(); ++i) {
@@ -27,18 +30,29 @@ bool GuizmoManager::TryHitObject(SceneGraph& sceneGraph,
             RayCollision collision = GetRayCollisionBox(ray, worldBounds);
             if (collision.hit && collision.distance < closestDist) {
                 closestDist = collision.distance;
-                m_CurrentInst = &inst;
+                m_CurrentInstanceId = inst.instanceId;
                 std::cout << "Colision con rayo" << std::endl;
             }
         }
-        return m_CurrentInst != nullptr;
+        return !m_CurrentInstanceId.empty();
     }
     return false;
 }
 
-void GuizmoManager::Update(CameraController& camera) {
-    if (m_CurrentInst == nullptr)
+void GuizmoManager::Update(SceneGraph& sceneGraph, CameraController& camera) {
+    if (m_CurrentInstanceId.empty())
         return;
+
+    auto& instances = sceneGraph.GetInstances();
+    const auto instanceIt = std::find_if(
+        instances.begin(), instances.end(), [&](const SceneInstance& instance) {
+            return instance.instanceId == m_CurrentInstanceId;
+        });
+    if (instanceIt == instances.end()) {
+        m_CurrentInstanceId.clear();
+        return;
+    }
+    SceneInstance& currentInstance = *instanceIt;
 
     // Inicializacion del frame de ImGuizmo
     ImGuiIO& io = ImGui::GetIO();
@@ -57,10 +71,10 @@ void GuizmoManager::Update(CameraController& camera) {
 
     // 1. Descomponer los datos de tu instancia a arrays (ImGuizmo usa
     // grados por defecto)
-    float matrixTranslation[3] = {m_CurrentInst->position.x,
-                                  m_CurrentInst->position.y,
-                                  m_CurrentInst->position.z};
-    float matrixRotation[3] = {0.0f, m_CurrentInst->rotationY,
+    float matrixTranslation[3] = {currentInstance.position.x,
+                                  currentInstance.position.y,
+                                  currentInstance.position.z};
+    float matrixRotation[3] = {0.0f, currentInstance.rotationY,
                                0.0f}; // Solo rotamos en Y
     float matrixScale[3] = {1.0f, 1.0f, 1.0f};
     float transformMatrix[16];
@@ -75,6 +89,10 @@ void GuizmoManager::Update(CameraController& camera) {
         currentGizmoOperation = ImGuizmo::TRANSLATE;
     if (IsKeyPressed(KEY_R))
         currentGizmoOperation = ImGuizmo::ROTATE;
+    if (IsKeyPressed(KEY_BACKSPACE))
+        std::erase_if(instances, [&](const auto& inst) {
+            return inst.instanceId == currentInstance.instanceId;
+        });
 
     // 4. Dibujar y procesar la manipulación
     ImGuizmo::Manipulate(viewMatrix.v, projectionMatrix.v,
@@ -89,10 +107,10 @@ void GuizmoManager::Update(CameraController& camera) {
         ImGuizmo::DecomposeMatrixToComponents(
             transformMatrix, matrixTranslation, matrixRotation, matrixScale);
 
-        m_CurrentInst->position.x = matrixTranslation[0];
-        m_CurrentInst->position.y = matrixTranslation[1];
-        m_CurrentInst->position.z = matrixTranslation[2];
-        m_CurrentInst->rotationY = matrixRotation[1];
+        currentInstance.position.x = matrixTranslation[0];
+        currentInstance.position.y = matrixTranslation[1];
+        currentInstance.position.z = matrixTranslation[2];
+        currentInstance.rotationY = matrixRotation[1];
     }
 }
 

@@ -17,7 +17,6 @@ struct SceneInstance {
     std::string propId; // Referencia a la clave en m_Models
     Vector3 position{0.0f, 0.0f, 0.0f};
     float rotationY{0.0f}; // Grados
-    float boundingRadius{0.5f};
     bool isStatic{false}; // Muebles ancla/pesados
 };
 
@@ -36,18 +35,21 @@ class SceneGraph {
     void ResolveOverlaps(float roomWidth, float roomDepth,
                          int maxIterations = 8);
     bool ExportSceneToFile(const std::string& filepath) const;
+    bool AddManualInstance(const std::string& propId, Vector3 position,
+                           float roomWidth, float roomDepth);
 
     nlohmann::json GenerateJSON() const;
     std::vector<SceneInstance>& GetInstances();
     const std::vector<SceneInstance>& GetInstances() const;
-    BoundingBox GetModelBounds(std::string& propId) const;
+    const std::unordered_map<std::string, PropModel>& GetModels() const;
+    BoundingBox GetModelBounds(const std::string& propId) const;
+    bool IsPlaceableProp(const std::string& propId) const;
 
     bool IsEmpty() const;
     void Clear();
     void Draw();
 
   private:
-    bool IsPlaceableProp(const std::string& propId) const;
     void ClampToRoom(SceneInstance& instance, float roomWidth,
                      float roomDepth) const;
     std::unordered_map<std::string, PropModel> m_Models;

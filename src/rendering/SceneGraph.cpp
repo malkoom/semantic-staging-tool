@@ -39,7 +39,6 @@ bool IsStructuralAsset(const std::string& propId) {
 nlohmann::json DescribeProp(const std::string& id, const PropModel& model) {
     BoundingBox bounds = model.GetBounds();
     return {{"id", id},
-            {"bounding_radius", model.GetRadius()},
             {"dimensions",
              {{"width", bounds.max.x - bounds.min.x},
               {"height", bounds.max.y - bounds.min.y},
@@ -274,10 +273,12 @@ bool SceneGraph::ApplyLayoutDirectives(const std::string& layoutJsonStr,
         inst.instanceId = item.value("instance_id", "");
         inst.propId = propId;
         inst.rotationY = rotY;
-        inst.boundingRadius = propModel.GetRadius();
+        const BoundingBox bounds = propModel.GetBounds();
+        const float width = bounds.max.x - bounds.min.x;
+        const float depth = bounds.max.z - bounds.min.z;
 
-        // Clasificar objetos grandes como anclas estáticas
-        inst.isStatic = (inst.boundingRadius > 1.2f);
+        // Los props con una huella grande sirven de anclas al resolver solapes.
+        inst.isStatic = (width * depth > 1.5f);
 
         const bool duplicateId =
             append &&
@@ -403,14 +404,54 @@ bool SceneGraph::IsEmpty() const { return m_Instances.empty(); }
 
 void SceneGraph::Clear() { m_Instances.clear(); }
 
-std::vector<SceneInstance>& SceneGraph::GetInstances() {
-    return m_Instances;
-}
+std::vector<SceneInstance>& SceneGraph::GetInstances() { return m_Instances; }
 
 const std::vector<SceneInstance>& SceneGraph::GetInstances() const {
     return m_Instances;
 }
 
-BoundingBox SceneGraph::GetModelBounds(std::string& propId) const {
+BoundingBox SceneGraph::GetModelBounds(const std::string& propId) const {
     return m_Models.at(propId).GetBounds();
+}
+
+const std::unordered_map<std::string, PropModel>&
+SceneGraph::GetModels() const {
+    return m_Models;
+}
+
+bool SceneGraph::AddManualInstance(const std::string& propId,
+                                   Vector3 position, float roomWidth,
+                                   float roomDepth) {
+    if (!IsPlaceableProp(propId))
+        return false;
+
+    SceneInstance inst;
+    inst.propId = propId;
+    inst.rotationY = 0.0f;
+
+    const BoundingBox bounds = m_Models.at(propId).GetBounds();
+    const float width = bounds.max.x - bounds.min.x;
+    const float depth = bounds.max.z - bounds.min.z;
+
+    // Los props con una huella grande sirven de anclas al resolver solapes.
+    inst.isStatic = (width * depth > 1.5f);
+
+    // El asset puede reutilizarse; cada colocación necesita un ID propio.
+    for (size_t suffix = 1;; ++suffix) {
+        inst.instanceId = "manual_" + propId + "_" +
+                          std::to_string(suffix);
+        const bool exists = std::any_of(
+            m_Instances.begin(), m_Instances.end(), [&](const auto& existing) {
+                return existing.instanceId == inst.instanceId;
+            });
+        if (!exists)
+            break;
+    }
+
+    // La posición de entrada representa XZ; apoyamos el modelo en el suelo.
+    inst.position = {position.x, -bounds.min.y, position.z};
+    m_Instances.push_back(std::move(inst));
+    ResolveOverlaps(roomWidth, roomDepth);
+
+    return true;
 }

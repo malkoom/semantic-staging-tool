@@ -1,5 +1,7 @@
 #pragma once
 // noincludeformat
+#include <string>
+
 #include "raylib.h"
 #include "rendering/CameraController.hpp"
 #include "rendering/SceneGraph.hpp"
@@ -11,10 +13,10 @@ class GuizmoManager {
   public:
     bool TryHitObject(SceneGraph& sceneGraph,
                       CameraController& cameraController);
-    void Update(CameraController& camera);
+    void Update(SceneGraph& sceneGraph, CameraController& camera);
 
     bool IsUsing() const;
 
   private:
-    SceneInstance* m_CurrentInst = nullptr;
+    std::string m_CurrentInstanceId;
 };

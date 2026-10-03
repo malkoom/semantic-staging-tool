@@ -14,5 +14,9 @@ class GUI {
                           promptCallback,
                       const std::string& errorMessage, SceneGraph& sceneGraph);
 
+    void DrawAssetPanel(SceneGraph& sceneGraph, float roomWidth,
+                        float roomDepth);
+
   private:
+    bool m_AssetPanelOpen{false};
 };
