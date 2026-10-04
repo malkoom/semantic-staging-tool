@@ -20,6 +20,8 @@
 
 #include <string>
 
+#include <nlohmann/json.hpp>
+
 #include "raylib.h"
 #include "rlImGui.h"
 
@@ -69,6 +71,44 @@ The JSON must adhere strictly to this schema:
 - When request_mode is "create_new_scene", return all requested entities.
 - When request_mode is "add_to_existing_scene", return only new entities or entities that must change. To edit an entity, return it with its existing instance_id and its desired placement_type, position_hint, rotation_y, and relative_to. Do not return unchanged entities. Do not delete entities.)";
 
+nlohmann::json BuildLayoutResponseFormat() {
+    const nlohmann::json positionHintSchema = {
+        {"type", "object"},
+        {"properties", {{"x", {{"type", "number"}}},
+                        {"y", {{"type", "number"}}}}},
+        {"required", {"x", "y"}},
+        {"additionalProperties", false}};
+
+    const nlohmann::json entitySchema = {
+        {"type", "object"},
+        {"properties",
+         {{"instance_id", {{"type", "string"}}},
+          {"prop_id", {{"type", "string"}}},
+          {"placement_type",
+           {{"type", "string"}, {"enum", {"ground", "on_top_of"}}}},
+          {"relative_to", {{"type", "string"}}},
+          {"position_hint", positionHintSchema},
+          {"rotation_y", {{"type", "number"}}},
+          {"state",
+           {{"type", "string"}, {"enum", {"upright", "knocked_over"}}}}}},
+        {"required", {"instance_id", "prop_id", "placement_type",
+                      "relative_to", "position_hint", "rotation_y",
+                      "state"}},
+        {"additionalProperties", false}};
+
+    return {{"type", "json_schema"},
+            {"json_schema",
+             {{"name", "scene_layout"},
+              {"strict", true},
+              {"schema",
+               {{"type", "object"},
+                {"properties",
+                 {{"layout_name", {{"type", "string"}}},
+                  {"entities", {{"type", "array"}, {"items", entitySchema}}}}},
+                {"required", {"layout_name", "entities"}},
+                {"additionalProperties", false}}}}}};
+}
+
 int main() {
     // Inicialización de la ventana (Raylib)
     const int screenWidth = 1280;
@@ -109,13 +149,14 @@ int main() {
     // AI Client
     AIClient aiManager{};
     std::string lastAIError;
-    auto promptCallback = [&](std::string& promptText, char* apiKey) {
+    auto promptCallback = [&](std::string& promptText, char* apiKey,
+                              const std::string& model) {
         lastAIError.clear();
         const bool extendScene = !sceneGraph.IsEmpty();
         const nlohmann::json currentScene = sceneGraph.GenerateJSON();
 
         nlohmann::json fullPayload = {
-            {"model", "openai/gpt-oss-120b"},
+            {"model", model},
             {"temperature", 0.2},
             {"messages",
              nlohmann::json::array(
@@ -126,7 +167,7 @@ int main() {
                         .BuildAIContext(promptText, roomWidth, roomDepth,
                                         currentScene, extendScene)
                         .dump()}}})},
-            {"response_format", {{"type", "json_object"}}}};
+            {"response_format", BuildLayoutResponseFormat()}};
 
         // Mandar el request a la API
         aiManager.RequestLayoutAsync(
@@ -138,10 +179,13 @@ int main() {
         // --- UPDATE ---
         // No mover la cámara mientras se arrastra un manipulador.
         if (!guizmoManager.IsUsing() && IsMouseButtonDown(MOUSE_RIGHT_BUTTON)) {
+            guizmoManager.CanUse = false;
             HideCursor();
             camera.Update();
-        } else
+        } else {
             ShowCursor();
+            guizmoManager.CanUse = true;
+        }
 
         if (auto error = aiManager.PollError()) {
             lastAIError = std::move(*error);
@@ -175,7 +219,7 @@ int main() {
 
         // Pintar mi objeto de la clase UI
         uiManager.DrawEditorUI(roomWidth, roomDepth, roomScale, promptCallback,
-                               lastAIError, sceneGraph);
+                               lastAIError, sceneGraph, guizmoManager);
         // Control de Guizmos
         guizmoManager.Update(sceneGraph, camera);
 

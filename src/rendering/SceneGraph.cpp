@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <initializer_list>
 #include <iostream>
+#include <utility>
 #include <vector>
 
 #include "SceneGraph.hpp"
@@ -49,34 +50,6 @@ nlohmann::json DescribeProp(const std::string& id, const PropModel& model) {
 
 void SceneGraph::Initialize(const char* assetsDir) {
     ModelsLoader::LoadModelFilesInDirectory(assetsDir, m_Models);
-}
-
-bool SceneGraph::IsPlaceableProp(const std::string& propId) const {
-    return m_Models.contains(propId) && !IsStructuralAsset(propId);
-}
-
-void SceneGraph::ClampToRoom(SceneInstance& instance, float roomWidth,
-                             float roomDepth) const {
-    const BoundingBox bounds = m_Models.at(instance.propId).GetBounds();
-    const float halfWidth = (bounds.max.x - bounds.min.x) * 0.5f;
-    const float halfDepth = (bounds.max.z - bounds.min.z) * 0.5f;
-    const float radians = instance.rotationY * DEG2RAD;
-    const float extentX = std::abs(std::cos(radians)) * halfWidth +
-                          std::abs(std::sin(radians)) * halfDepth;
-    const float extentZ = std::abs(std::sin(radians)) * halfWidth +
-                          std::abs(std::cos(radians)) * halfDepth;
-    const float roomHalfWidth = roomWidth * 0.5f;
-    const float roomHalfDepth = roomDepth * 0.5f;
-    instance.position.x =
-        extentX >= roomHalfWidth
-            ? 0.0f
-            : std::clamp(instance.position.x, -roomHalfWidth + extentX,
-                         roomHalfWidth - extentX);
-    instance.position.z =
-        extentZ >= roomHalfDepth
-            ? 0.0f
-            : std::clamp(instance.position.z, -roomHalfDepth + extentZ,
-                         roomHalfDepth - extentZ);
 }
 
 const nlohmann::json
@@ -127,99 +100,7 @@ SceneGraph::BuildAIContext(const std::string& userPrompt, float roomWidth,
     return context;
 }
 
-void SceneGraph::Draw() {
-    for (const auto& inst : m_Instances) {
-        auto it = m_Models.find(inst.propId);
-        if (it != m_Models.end()) {
-            DrawModelEx(it->second.GetModel(), inst.position,
-                        {0.0f, 1.0f, 0.0f}, // Eje vertical Y
-                        inst.rotationY, {1.0f, 1.0f, 1.0f}, WHITE);
-        }
-    }
-}
-
-void SceneGraph::SetShader(Shader shader) {
-    for (auto& [_, model] : m_Models) {
-        model.SetShader(shader);
-    }
-}
-
-void SceneGraph::ResolveOverlaps(float roomWidth, float roomDepth,
-                                 int maxIterations) {
-    for (auto& instance : m_Instances)
-        ClampToRoom(instance, roomWidth, roomDepth);
-    if (m_Instances.size() < 2)
-        return;
-
-    for (int it = 0; it < maxIterations; ++it) {
-        for (size_t i = 0; i < m_Instances.size(); ++i) {
-            for (size_t j = i + 1; j < m_Instances.size(); ++j) {
-                auto& a = m_Instances[i];
-                auto& b = m_Instances[j];
-
-                // Rectángulos alineados a los ejes que contienen al prop
-                // rotado. Es mucho más fiel que el círculo medio anterior.
-                const BoundingBox aBounds = m_Models.at(a.propId).GetBounds();
-                const BoundingBox bBounds = m_Models.at(b.propId).GetBounds();
-                const float aRadians = a.rotationY * DEG2RAD;
-                const float bRadians = b.rotationY * DEG2RAD;
-                const float aHalfWidth = (aBounds.max.x - aBounds.min.x) * 0.5f;
-                const float aHalfDepth = (aBounds.max.z - aBounds.min.z) * 0.5f;
-                const float bHalfWidth = (bBounds.max.x - bBounds.min.x) * 0.5f;
-                const float bHalfDepth = (bBounds.max.z - bBounds.min.z) * 0.5f;
-                const float aExtentX =
-                    std::abs(std::cos(aRadians)) * aHalfWidth +
-                    std::abs(std::sin(aRadians)) * aHalfDepth;
-                const float aExtentZ =
-                    std::abs(std::sin(aRadians)) * aHalfWidth +
-                    std::abs(std::cos(aRadians)) * aHalfDepth;
-                const float bExtentX =
-                    std::abs(std::cos(bRadians)) * bHalfWidth +
-                    std::abs(std::sin(bRadians)) * bHalfDepth;
-                const float bExtentZ =
-                    std::abs(std::sin(bRadians)) * bHalfWidth +
-                    std::abs(std::cos(bRadians)) * bHalfDepth;
-                float dx = a.position.x - b.position.x;
-                float dz = a.position.z - b.position.z;
-                const float overlapX = aExtentX + bExtentX - std::abs(dx);
-                const float overlapZ = aExtentZ + bExtentZ - std::abs(dz);
-
-                if (overlapX > 0.0f && overlapZ > 0.0f) {
-                    const bool resolveX = overlapX <= overlapZ;
-                    const float overlap = resolveX ? overlapX : overlapZ;
-                    const float delta =
-                        (resolveX ? dx : dz) < 0.0f ? -overlap : overlap;
-
-                    // Resolución según masa/fijación estática
-                    if (a.isStatic && !b.isStatic) {
-                        if (resolveX)
-                            b.position.x -= delta;
-                        else
-                            b.position.z -= delta;
-                    } else if (!a.isStatic && b.isStatic) {
-                        if (resolveX)
-                            a.position.x += delta;
-                        else
-                            a.position.z += delta;
-                    } else if (!a.isStatic && !b.isStatic) {
-                        float halfOverlap = overlap * 0.5f;
-                        const float halfDelta =
-                            delta < 0.0f ? -halfOverlap : halfOverlap;
-                        if (resolveX) {
-                            a.position.x += halfDelta;
-                            b.position.x -= halfDelta;
-                        } else {
-                            a.position.z += halfDelta;
-                            b.position.z -= halfDelta;
-                        }
-                    }
-                    ClampToRoom(a, roomWidth, roomDepth);
-                    ClampToRoom(b, roomWidth, roomDepth);
-                }
-            }
-        }
-    }
-}
+// TODO: Hacer un historial de cambios en el layouts para poder dshacer acciones
 
 bool SceneGraph::ApplyLayoutDirectives(const std::string& layoutJsonStr,
                                        bool append, float roomWidth,
@@ -290,7 +171,8 @@ bool SceneGraph::ApplyLayoutDirectives(const std::string& layoutJsonStr,
         auto existingIt =
             append ? std::find_if(m_Instances.begin(), m_Instances.end(),
                                   [&](const SceneInstance& existing) {
-                                      return existing.instanceId == inst.instanceId;
+                                      return existing.instanceId ==
+                                             inst.instanceId;
                                   })
                    : m_Instances.end();
         const bool updatesExisting = existingIt != m_Instances.end();
@@ -371,12 +253,11 @@ bool SceneGraph::ApplyLayoutDirectives(const std::string& layoutJsonStr,
                 parentIt->rotationY; // Sumar rotación del padre
 
             if (child.updatesExisting) {
-                auto existingIt =
-                    std::find_if(m_Instances.begin(), m_Instances.end(),
-                                 [&](const SceneInstance& inst) {
-                                     return inst.instanceId ==
-                                            child.instance.instanceId;
-                                 });
+                auto existingIt = std::find_if(
+                    m_Instances.begin(), m_Instances.end(),
+                    [&](const SceneInstance& inst) {
+                        return inst.instanceId == child.instance.instanceId;
+                    });
                 if (existingIt != m_Instances.end())
                     *existingIt = std::move(child.instance);
                 else
@@ -391,12 +272,11 @@ bool SceneGraph::ApplyLayoutDirectives(const std::string& layoutJsonStr,
             child.instance.position = {child.localOffset.x, -childBox.min.y,
                                        child.localOffset.y};
             if (child.updatesExisting) {
-                auto existingIt =
-                    std::find_if(m_Instances.begin(), m_Instances.end(),
-                                 [&](const SceneInstance& inst) {
-                                     return inst.instanceId ==
-                                            child.instance.instanceId;
-                                 });
+                auto existingIt = std::find_if(
+                    m_Instances.begin(), m_Instances.end(),
+                    [&](const SceneInstance& inst) {
+                        return inst.instanceId == child.instance.instanceId;
+                    });
                 if (existingIt != m_Instances.end())
                     *existingIt = std::move(child.instance);
                 else
@@ -407,7 +287,86 @@ bool SceneGraph::ApplyLayoutDirectives(const std::string& layoutJsonStr,
         }
     }
 
+    AddHistory();
+
     return true;
+}
+
+void SceneGraph::ResolveOverlaps(float roomWidth, float roomDepth,
+                                 int maxIterations) {
+    for (auto& instance : m_Instances)
+        ClampToRoom(instance, roomWidth, roomDepth);
+    if (m_Instances.size() < 2)
+        return;
+
+    for (int it = 0; it < maxIterations; ++it) {
+        for (size_t i = 0; i < m_Instances.size(); ++i) {
+            for (size_t j = i + 1; j < m_Instances.size(); ++j) {
+                auto& a = m_Instances[i];
+                auto& b = m_Instances[j];
+
+                // Rectángulos alineados a los ejes que contienen al prop
+                // rotado. Es mucho más fiel que el círculo medio anterior.
+                const BoundingBox aBounds = m_Models.at(a.propId).GetBounds();
+                const BoundingBox bBounds = m_Models.at(b.propId).GetBounds();
+                const float aRadians = a.rotationY * DEG2RAD;
+                const float bRadians = b.rotationY * DEG2RAD;
+                const float aHalfWidth = (aBounds.max.x - aBounds.min.x) * 0.5f;
+                const float aHalfDepth = (aBounds.max.z - aBounds.min.z) * 0.5f;
+                const float bHalfWidth = (bBounds.max.x - bBounds.min.x) * 0.5f;
+                const float bHalfDepth = (bBounds.max.z - bBounds.min.z) * 0.5f;
+                const float aExtentX =
+                    std::abs(std::cos(aRadians)) * aHalfWidth +
+                    std::abs(std::sin(aRadians)) * aHalfDepth;
+                const float aExtentZ =
+                    std::abs(std::sin(aRadians)) * aHalfWidth +
+                    std::abs(std::cos(aRadians)) * aHalfDepth;
+                const float bExtentX =
+                    std::abs(std::cos(bRadians)) * bHalfWidth +
+                    std::abs(std::sin(bRadians)) * bHalfDepth;
+                const float bExtentZ =
+                    std::abs(std::sin(bRadians)) * bHalfWidth +
+                    std::abs(std::cos(bRadians)) * bHalfDepth;
+                float dx = a.position.x - b.position.x;
+                float dz = a.position.z - b.position.z;
+                const float overlapX = aExtentX + bExtentX - std::abs(dx);
+                const float overlapZ = aExtentZ + bExtentZ - std::abs(dz);
+
+                if (overlapX > 0.0f && overlapZ > 0.0f) {
+                    const bool resolveX = overlapX <= overlapZ;
+                    const float overlap = resolveX ? overlapX : overlapZ;
+                    const float delta =
+                        (resolveX ? dx : dz) < 0.0f ? -overlap : overlap;
+
+                    // Resolución según masa/fijación estática
+                    if (a.isStatic && !b.isStatic) {
+                        if (resolveX)
+                            b.position.x -= delta;
+                        else
+                            b.position.z -= delta;
+                    } else if (!a.isStatic && b.isStatic) {
+                        if (resolveX)
+                            a.position.x += delta;
+                        else
+                            a.position.z += delta;
+                    } else if (!a.isStatic && !b.isStatic) {
+                        float halfOverlap = overlap * 0.5f;
+                        const float halfDelta =
+                            delta < 0.0f ? -halfOverlap : halfOverlap;
+                        if (resolveX) {
+                            a.position.x += halfDelta;
+                            b.position.x -= halfDelta;
+                        } else {
+                            a.position.z += halfDelta;
+                            b.position.z -= halfDelta;
+                        }
+                    }
+                    ClampToRoom(a, roomWidth, roomDepth);
+                    ClampToRoom(b, roomWidth, roomDepth);
+                }
+            }
+        }
+    }
 }
 
 bool SceneGraph::ExportSceneToFile(const std::string& filepath) const {
@@ -415,50 +374,8 @@ bool SceneGraph::ExportSceneToFile(const std::string& filepath) const {
     return SaveJsonToFile(filepath, GenerateJSON());
 }
 
-nlohmann::json SceneGraph::GenerateJSON() const {
-    nlohmann::json root;
-    root["entities"] = nlohmann::json::array();
-
-    for (const auto& inst : m_Instances) {
-        nlohmann::json entity;
-        entity["instance_id"] = inst.instanceId;
-        entity["prop_id"] = inst.propId;
-        entity["position"] = {{"x", inst.position.x},
-                              {"y", inst.position.y},
-                              {"z", inst.position.z}};
-        entity["rotation_y"] = inst.rotationY;
-        entity["is_static"] = inst.isStatic;
-
-        root["entities"].push_back(std::move(entity));
-    }
-
-    return root;
-}
-
-bool SceneGraph::IsEmpty() const { return m_Instances.empty(); }
-
-void SceneGraph::Clear() { m_Instances.clear(); }
-
-std::vector<SceneInstance>& SceneGraph::GetInstances() { return m_Instances; }
-
-const std::vector<SceneInstance>& SceneGraph::GetInstances() const {
-    return m_Instances;
-}
-
-BoundingBox SceneGraph::GetModelBounds(const std::string& propId) const {
-    return m_Models.at(propId).GetBounds();
-}
-
-const std::unordered_map<std::string, PropModel>&
-SceneGraph::GetModels() const {
-    return m_Models;
-}
-
 bool SceneGraph::AddManualInstance(const std::string& propId, Vector3 position,
                                    float roomWidth, float roomDepth) {
-
-    // FIXME: Al añadir instancias manuales no se tienen en cuenta para el
-    // prompt del llm
 
     if (!IsPlaceableProp(propId))
         return false;
@@ -491,4 +408,105 @@ bool SceneGraph::AddManualInstance(const std::string& propId, Vector3 position,
     ResolveOverlaps(roomWidth, roomDepth);
 
     return true;
+}
+
+void SceneGraph::AddHistory() {
+    if (m_History.size() >= 10) {
+        m_History.pop_front();
+    }
+    m_History.push_back(m_Instances);
+}
+
+bool SceneGraph::Undo() {
+    if (m_History.empty()) {
+        return false;
+    }
+
+    m_Instances = std::move(m_History.back());
+    m_History.pop_back();
+    return true;
+}
+
+nlohmann::json SceneGraph::GenerateJSON() const {
+    nlohmann::json root;
+    root["entities"] = nlohmann::json::array();
+
+    for (const auto& inst : m_Instances) {
+        nlohmann::json entity;
+        entity["instance_id"] = inst.instanceId;
+        entity["prop_id"] = inst.propId;
+        entity["position"] = {{"x", inst.position.x},
+                              {"y", inst.position.y},
+                              {"z", inst.position.z}};
+        entity["rotation_y"] = inst.rotationY;
+        entity["is_static"] = inst.isStatic;
+
+        root["entities"].push_back(std::move(entity));
+    }
+
+    return root;
+}
+
+std::vector<SceneInstance>& SceneGraph::GetInstances() { return m_Instances; }
+
+const std::vector<SceneInstance>& SceneGraph::GetInstances() const {
+    return m_Instances;
+}
+
+const std::unordered_map<std::string, PropModel>&
+SceneGraph::GetModels() const {
+    return m_Models;
+}
+
+BoundingBox SceneGraph::GetModelBounds(const std::string& propId) const {
+    return m_Models.at(propId).GetBounds();
+}
+
+bool SceneGraph::IsPlaceableProp(const std::string& propId) const {
+    return m_Models.contains(propId) && !IsStructuralAsset(propId);
+}
+
+bool SceneGraph::IsEmpty() const { return m_Instances.empty(); }
+
+void SceneGraph::Clear() { m_Instances.clear(); }
+
+void SceneGraph::SetShader(Shader shader) {
+    for (auto& [_, model] : m_Models) {
+        model.SetShader(shader);
+    }
+}
+
+void SceneGraph::Draw() {
+    for (const auto& inst : m_Instances) {
+        auto it = m_Models.find(inst.propId);
+        if (it != m_Models.end()) {
+            DrawModelEx(it->second.GetModel(), inst.position,
+                        {0.0f, 1.0f, 0.0f}, // Eje vertical Y
+                        inst.rotationY, {1.0f, 1.0f, 1.0f}, WHITE);
+        }
+    }
+}
+
+void SceneGraph::ClampToRoom(SceneInstance& instance, float roomWidth,
+                             float roomDepth) const {
+    const BoundingBox bounds = m_Models.at(instance.propId).GetBounds();
+    const float halfWidth = (bounds.max.x - bounds.min.x) * 0.5f;
+    const float halfDepth = (bounds.max.z - bounds.min.z) * 0.5f;
+    const float radians = instance.rotationY * DEG2RAD;
+    const float extentX = std::abs(std::cos(radians)) * halfWidth +
+                          std::abs(std::sin(radians)) * halfDepth;
+    const float extentZ = std::abs(std::sin(radians)) * halfWidth +
+                          std::abs(std::cos(radians)) * halfDepth;
+    const float roomHalfWidth = roomWidth * 0.5f;
+    const float roomHalfDepth = roomDepth * 0.5f;
+    instance.position.x =
+        extentX >= roomHalfWidth
+            ? 0.0f
+            : std::clamp(instance.position.x, -roomHalfWidth + extentX,
+                         roomHalfWidth - extentX);
+    instance.position.z =
+        extentZ >= roomHalfDepth
+            ? 0.0f
+            : std::clamp(instance.position.z, -roomHalfDepth + extentZ,
+                         roomHalfDepth - extentZ);
 }

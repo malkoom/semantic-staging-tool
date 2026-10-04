@@ -2,6 +2,7 @@
 
 #include <nlohmann/json.hpp>
 
+#include <deque>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -17,7 +18,7 @@ struct SceneInstance {
     std::string propId; // Referencia a la clave en m_Models
     Vector3 position{0.0f, 0.0f, 0.0f};
     float rotationY{0.0f}; // Grados
-    bool isStatic{false}; // Muebles ancla/pesados
+    bool isStatic{false};  // Muebles ancla/pesados
 };
 
 class SceneGraph {
@@ -38,6 +39,9 @@ class SceneGraph {
     bool AddManualInstance(const std::string& propId, Vector3 position,
                            float roomWidth, float roomDepth);
 
+    void AddHistory();
+    bool Undo();
+
     nlohmann::json GenerateJSON() const;
     std::vector<SceneInstance>& GetInstances();
     const std::vector<SceneInstance>& GetInstances() const;
@@ -55,4 +59,5 @@ class SceneGraph {
                      float roomDepth) const;
     std::unordered_map<std::string, PropModel> m_Models;
     std::vector<SceneInstance> m_Instances;
+    std::deque<std::vector<SceneInstance>> m_History;
 };

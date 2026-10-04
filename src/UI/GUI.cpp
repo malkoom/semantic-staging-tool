@@ -6,12 +6,17 @@
 #include "imgui.h"
 #include "rlImGui.h"
 
+#include "UI/GuizmoManager.hpp"
+
 GUI::GUI() { rlImGuiSetup(true); }
 
 void GUI::DrawEditorUI(
     float& roomWidth, float& roomDepth, float& scale,
-    std::function<void(std::string& promptText, char* apiKey)> promptCallback,
-    const std::string& errorMessage, SceneGraph& sceneGraph) {
+    std::function<void(std::string& promptText, char* apiKey,
+                       const std::string& model)>
+        promptCallback,
+    const std::string& errorMessage, SceneGraph& sceneGraph,
+    GuizmoManager& guizmoManager) {
 
     ImGui::SetNextWindowPos(ImVec2(10, 10), ImGuiCond_FirstUseEver);
     ImGui::SetNextWindowSize(ImVec2(340, 420), ImGuiCond_FirstUseEver);
@@ -27,6 +32,13 @@ void GUI::DrawEditorUI(
         ImGui::InputText("API Key", apiKeyBuffer, sizeof(apiKeyBuffer),
                          ImGuiInputTextFlags_Password);
 
+        static const char* models[] = {"openai/gpt-oss-120b",
+                                       "openai/gpt-oss-20b",
+                                       "qwen/qwen3.8-27b"};
+        static int selectedModel = 0;
+        ImGui::Combo("LLM model", &selectedModel, models,
+                     IM_ARRAYSIZE(models));
+
         // Sliders de límites de sala (modifican directamente las variables)
         ImGui::Text("Room Size");
         ImGui::SliderFloat("Width (X)", &roomWidth, 4.0f, 30.0f, "%.1f m");
@@ -34,15 +46,22 @@ void GUI::DrawEditorUI(
 
         ImGui::TextDisabled("Enter a prompt");
         static char textInputBuffer[255];
-        ImGui::InputText("Prompt", textInputBuffer, sizeof(textInputBuffer));
+        if (ImGui::InputText("Prompt", textInputBuffer,
+                             sizeof(textInputBuffer))) {
+            guizmoManager.CanUse = false;
+        }
 
         if (ImGui::Button("Send") && textInputBuffer[0] != '\0') {
             std::string textString = textInputBuffer;
-            promptCallback(textString, apiKeyBuffer);
+            promptCallback(textString, apiKeyBuffer, models[selectedModel]);
         }
 
         if (ImGui::Button("Clear")) {
             sceneGraph.Clear();
+        }
+
+        if (ImGui::Button("Undo Prompt")) {
+            sceneGraph.Undo();
         }
 
         ImGui::Separator();
@@ -99,8 +118,8 @@ void GUI::DrawAssetPanel(SceneGraph& sceneGraph, float roomWidth,
 
     for (const auto& propId : propIds) {
         if (ImGui::Button(propId.c_str(), ImVec2(-1.0f, 0.0f))) {
-            sceneGraph.AddManualInstance(propId, {0.0f, 0.0f, 0.0f},
-                                         roomWidth, roomDepth);
+            sceneGraph.AddManualInstance(propId, {0.0f, 0.0f, 0.0f}, roomWidth,
+                                         roomDepth);
         }
     }
 

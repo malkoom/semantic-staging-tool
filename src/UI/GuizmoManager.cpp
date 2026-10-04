@@ -40,7 +40,7 @@ bool GuizmoManager::TryHitObject(SceneGraph& sceneGraph,
 }
 
 void GuizmoManager::Update(SceneGraph& sceneGraph, CameraController& camera) {
-    if (m_CurrentInstanceId.empty())
+    if (m_CurrentInstanceId.empty() || !CanUse)
         return;
 
     auto& instances = sceneGraph.GetInstances();
@@ -85,9 +85,9 @@ void GuizmoManager::Update(SceneGraph& sceneGraph, CameraController& camera) {
 
     // T = mover, R = rotar. W y E se reservan para mover la cámara.
     static ImGuizmo::OPERATION currentGizmoOperation = ImGuizmo::TRANSLATE;
-    if (IsKeyPressed(KEY_T))
+    if (IsKeyPressed(KEY_W))
         currentGizmoOperation = ImGuizmo::TRANSLATE;
-    if (IsKeyPressed(KEY_R))
+    if (IsKeyPressed(KEY_E))
         currentGizmoOperation = ImGuizmo::ROTATE;
     if (IsKeyPressed(KEY_BACKSPACE))
         std::erase_if(instances, [&](const auto& inst) {

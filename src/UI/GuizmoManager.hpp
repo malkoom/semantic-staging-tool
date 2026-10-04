@@ -16,6 +16,7 @@ class GuizmoManager {
     void Update(SceneGraph& sceneGraph, CameraController& camera);
 
     bool IsUsing() const;
+    bool CanUse{true};
 
   private:
     std::string m_CurrentInstanceId;
