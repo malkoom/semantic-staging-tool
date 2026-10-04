@@ -138,6 +138,12 @@ void SceneGraph::Draw() {
     }
 }
 
+void SceneGraph::SetShader(Shader shader) {
+    for (auto& [_, model] : m_Models) {
+        model.SetShader(shader);
+    }
+}
+
 void SceneGraph::ResolveOverlaps(float roomWidth, float roomDepth,
                                  int maxIterations) {
     for (auto& instance : m_Instances)

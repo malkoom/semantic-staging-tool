@@ -45,6 +45,12 @@ class PropModel {
     const BoundingBox GetBounds() const { return m_LocalBounds; }
     const bool IsStatic() const { return m_IsStatic; }
 
+    void SetShader(Shader shader) {
+        for (int i = 0; i < m_Model.materialCount; ++i) {
+            m_Model.materials[i].shader = shader;
+        }
+    }
+
     void Draw() { DrawModel(m_Model, Position, Scale, ModelColor); };
 
   private:

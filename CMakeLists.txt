@@ -106,3 +106,11 @@ add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
         "$<TARGET_FILE_DIR:${PROJECT_NAME}>/assets"
     COMMENT "Copiando assets al directorio de ejecucion..."
 )
+
+# El fragment shader se carga en tiempo de ejecución junto con los assets.
+add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+        "${CMAKE_CURRENT_SOURCE_DIR}/shaders"
+        "$<TARGET_FILE_DIR:${PROJECT_NAME}>/shaders"
+    COMMENT "Copiando shaders al directorio de ejecucion..."
+)

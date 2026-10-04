@@ -47,6 +47,7 @@ class SceneGraph {
 
     bool IsEmpty() const;
     void Clear();
+    void SetShader(Shader shader);
     void Draw();
 
   private:

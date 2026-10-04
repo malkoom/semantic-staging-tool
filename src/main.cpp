@@ -1,4 +1,4 @@
-#include "imgui.h"
+#include <iostream>
 
 #include "UI/GuizmoManager.hpp"
 
@@ -93,6 +93,16 @@ int main() {
     SceneGraph sceneGraph;
     sceneGraph.Initialize("assets/models");
 
+    // Ambos shaders mantienen posición, normal y cámara en espacio mundo.
+    Shader phongShader =
+        LoadShader("shaders/basic_light.vs", "shaders/basic_light.glsl");
+    int viewPosLoc = -1;
+    if (phongShader.id != 0) {
+        std::cout << "Bindeando el shader al sceneGraph" << std::endl;
+        sceneGraph.SetShader(phongShader);
+        viewPosLoc = GetShaderLocation(phongShader, "viewPos");
+    }
+
     // JSON save
     nlohmann::json currentLayout{};
 
@@ -153,6 +163,10 @@ int main() {
         BeginMode3D(camera.GetCamera());
         DrawGrid(20, 1.0f);
 
+        if (viewPosLoc >= 0) {
+            SetShaderValue(phongShader, viewPosLoc,
+                           &camera.GetCamera().position, SHADER_UNIFORM_VEC3);
+        }
         sceneGraph.Draw();
         EndMode3D();
 
@@ -173,6 +187,9 @@ int main() {
 
     // 4. Limpieza de memoria y cierre de contextos
     rlImGuiShutdown();
+    if (phongShader.id != 0) {
+        UnloadShader(phongShader);
+    }
     CloseWindow();
 
     return 0;
