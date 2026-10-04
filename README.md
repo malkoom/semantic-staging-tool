@@ -66,7 +66,7 @@ Strict JSON Schema only guarantees the response structure: it does not make the 
 
 | Action | Control |
 | --- | --- |
-| Look around | Move the mouse |
+| Look around | Move the mouse + Right-click|
 | Move forward / backward | `W` / `S` |
 | Strafe right / left | `D` / `A` |
 | Move up / down | `E` / `Q` |
