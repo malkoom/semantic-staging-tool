@@ -43,6 +43,77 @@ Run the executable from the build directory so it can find the `assets` director
 
 On multi-configuration generators such as Visual Studio, the executable may instead be under `build/Release/`.
 
+## Release checklist
+
+Before creating a public build, decide the final contents of `assets/models`.
+Every supported model below that folder is loaded and sent to the generator as
+an available prop, so unused assets make releases larger and give the LLM more
+irrelevant choices.
+
+1. Test a clean scene, an incremental prompt, manual move/rotation, **Clear**,
+   **Undo Prompt**, and **Export to JSON**.
+2. Test with an invalid API key and without a network connection; both cases
+   must show an error without closing the app.
+3. Confirm that the application starts from its distribution folder and loads
+   both `assets/` and `shaders/` without relying on source files.
+4. Test the release package on a machine or VM that does not have the project
+   checkout or your development dependencies installed.
+5. Include a short `LICENSE`, a third-party notices file, a version number,
+   and release notes describing the supported platforms and known limitations.
+
+### Windows
+
+Build from an **x64 Native Tools Command Prompt for Visual Studio**:
+
+```powershell
+cmake -S . -B build-windows -A x64
+cmake --build build-windows --config Release
+```
+
+Package the contents of `build-windows/Release/` as a zip, keeping this layout:
+
+```text
+SemanticStagingTool-windows-x64/
+  SemanticStagingTool.exe
+  assets/
+  shaders/
+  <required .dll files>
+  README.md
+  LICENSE
+```
+
+Run the executable from the unpacked folder on a clean Windows machine. Copy
+all runtime DLLs reported by Visual Studio or a dependency-inspection tool,
+and install or bundle the Microsoft Visual C++ Redistributable if required.
+Do not put a Groq API key in the package.
+
+### Linux
+
+Build on the oldest Linux distribution you intend to support:
+
+```bash
+cmake -S . -B build-linux -DCMAKE_BUILD_TYPE=Release
+cmake --build build-linux --config Release -j
+```
+
+Package the executable generated in `build-linux/` together with its copied
+`assets/` and `shaders/` directories:
+
+```text
+SemanticStagingTool-linux-x86_64/
+  SemanticStagingTool
+  assets/
+  shaders/
+  README.md
+  LICENSE
+```
+
+Before publishing, use `ldd SemanticStagingTool` on the release binary and
+test on a clean Linux installation. Document the required graphics stack and
+any system libraries that you choose not to bundle. A portable AppImage or
+distribution-specific `.deb`/`.rpm` can be added after the zip/tarball release
+has been verified.
+
 ## Generate a scene
 
 1. Start the application.

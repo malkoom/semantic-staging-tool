@@ -64,6 +64,8 @@ The JSON must adhere strictly to this schema:
 - "ground": Objects placed on the floor. 'relative_to' must be empty (""). 'position_hint' is world (X, Z).
 - "on_top_of": Small props placed on surfaces (desks, tables). 'relative_to' must be the 'instance_id' of the surface prop. 'position_hint' is a local offset from that surface's center.
 - Use dimensions to estimate the scale of each prop and avoid obviously overlapping ground objects.
+- Choose rotation_y deliberately: align large furniture with nearby walls, orient
+  chairs toward tables, and align related props with their supporting surface.
 - current_scene contains already-placed entities with their actual positions and dimensions. In an incremental request, use it to avoid collisions, as the parent of an explicitly requested on_top_of placement, or to edit an existing entity.
 
 ### INCREMENTAL REQUESTS:

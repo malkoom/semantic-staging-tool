@@ -83,11 +83,11 @@ void GuizmoManager::Update(SceneGraph& sceneGraph, CameraController& camera) {
     ImGuizmo::RecomposeMatrixFromComponents(matrixTranslation, matrixRotation,
                                             matrixScale, transformMatrix);
 
-    // T = mover, R = rotar. W y E se reservan para mover la cámara.
+    // T = mover, R = rotar. W y E se reservan para la cámara.
     static ImGuizmo::OPERATION currentGizmoOperation = ImGuizmo::TRANSLATE;
-    if (IsKeyPressed(KEY_W))
+    if (IsKeyPressed(KEY_T))
         currentGizmoOperation = ImGuizmo::TRANSLATE;
-    if (IsKeyPressed(KEY_E))
+    if (IsKeyPressed(KEY_R))
         currentGizmoOperation = ImGuizmo::ROTATE;
     if (IsKeyPressed(KEY_BACKSPACE))
         std::erase_if(instances, [&](const auto& inst) {

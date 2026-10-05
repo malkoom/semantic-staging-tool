@@ -149,7 +149,6 @@ bool SceneGraph::ApplyLayoutDirectives(const std::string& layoutJsonStr,
         const auto& propModel = itModel->second;
         std::string placement = item.value("placement_type", "ground");
         float rotY = item.value("rotation_y", 0.0f);
-
         Vector2 posHint = {0.0f, 0.0f};
         if (item.contains("position_hint")) {
             posHint.x = item["position_hint"].value("x", 0.0f);
