@@ -1,6 +1,8 @@
 import bpy
 import os
 
+# Script that extracts all meshes from a single glb file
+
 # Carpeta donde quieres guardar los GLB sueltos
 export_dir = "dir"
 os.makedirs(export_dir, exist_ok=True)

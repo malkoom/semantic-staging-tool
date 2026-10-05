@@ -114,3 +114,33 @@ add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
         "$<TARGET_FILE_DIR:${PROJECT_NAME}>/shaders"
     COMMENT "Copiando shaders al directorio de ejecucion..."
 )
+
+# Install rules are used by the release workflow to create a self-contained
+# distribution folder.  On Windows CMake discovers and copies non-system DLLs
+# needed by the executable (for example, dependencies that are built as shared
+# libraries by FetchContent).
+install(TARGETS ${PROJECT_NAME}
+    RUNTIME DESTINATION "."
+    RUNTIME_DEPENDENCY_SET ${PROJECT_NAME}_runtime_dependencies
+)
+
+if(WIN32)
+    install(RUNTIME_DEPENDENCY_SET ${PROJECT_NAME}_runtime_dependencies
+        DESTINATION "."
+        PRE_EXCLUDE_REGEXES
+            "api-ms-win-.*"
+            "ext-ms-win-.*"
+            "kernel32\.dll"
+            "user32\.dll"
+            "gdi32\.dll"
+            "advapi32\.dll"
+            "shell32\.dll"
+            "ole32\.dll"
+            "oleaut32\.dll"
+            "ws2_32\.dll"
+            "winmm\.dll"
+    )
+endif()
+
+install(DIRECTORY assets shaders DESTINATION ".")
+install(FILES README.md LICENSE DESTINATION ".")

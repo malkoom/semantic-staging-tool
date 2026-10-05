@@ -63,6 +63,21 @@ irrelevant choices.
 5. Include a short `LICENSE`, a third-party notices file, a version number,
    and release notes describing the supported platforms and known limitations.
 
+### GitHub releases
+
+The workflow at `.github/workflows/release.yml` builds native x64 packages for
+Linux and Windows and attaches them to a GitHub Release. Push a version tag to
+publish one:
+
+```bash
+git tag v1.0.0
+git push origin v1.0.0
+```
+
+It can also be started from the **Actions** tab with the tag to release. The
+generated archives contain the executable, `assets/`, `shaders/`, `README.md`,
+and `LICENSE`.
+
 ### Windows
 
 Build from an **x64 Native Tools Command Prompt for Visual Studio**:
@@ -178,9 +193,11 @@ Add supported model files anywhere below `assets/models`, then rebuild (or ensur
 
 The 3D assets included for testing are from Kenney's [Graveyard Kit](https://kenney.itch.io/kenney-game-assets). Thank you to [Kenney](https://kenney.nl/) for making these assets available under the [CC0 1.0 Universal](https://creativecommons.org/publicdomain/zero/1.0/) license.
 
+This project uses [raylib](https://www.raylib.com/). Thank you to Ramon Santamaria and the raylib contributors for the graphics framework, released under the [zlib/libpng license](https://github.com/raysan5/raylib/blob/master/LICENSE).
+
 ## License
 
-Unless a file states otherwise, this project's source code is licensed under the [PolyForm Noncommercial License 1.0.0](LICENSE). Commercial use, including commercial distribution, requires a separate written license from the copyright holder. This is source-available software, not open source.
+Unless a file states otherwise, this project's source code is licensed under the [Semantic Staging Tool Use-Only License](LICENSE). It permits personal and commercial use, including internal business use, but prohibits redistributing the source code, binaries, or derivatives. This is source-available software, not open source.
 
 The testing assets under `assets/models/Graveyard` are licensed separately under CC0 1.0 and are not subject to this noncommercial restriction.
 
