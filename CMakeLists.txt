@@ -120,8 +120,8 @@ add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
 # needed by the executable (for example, dependencies that are built as shared
 # libraries by FetchContent).
 install(TARGETS ${PROJECT_NAME}
-    RUNTIME DESTINATION "."
     RUNTIME_DEPENDENCY_SET ${PROJECT_NAME}_runtime_dependencies
+    RUNTIME DESTINATION "."
 )
 
 if(WIN32)
