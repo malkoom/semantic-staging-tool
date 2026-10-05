@@ -1,5 +1,7 @@
 # Semantic Staging Tool
 
+![Semantic Staging Tool logo](extra/logo.png)
+
 Semantic Staging Tool is a desktop 3D set-dressing and level-design prototype written in C++20. It turns a natural-language prompt into a practical arrangement of the 3D assets available in the project, then lets you inspect and refine that result directly in a real-time viewport.
 
 The application sends the prompt, room dimensions, measurements for the loaded props, and (when applicable) the current scene to a Groq OpenAI-compatible chat-completions endpoint. The model returns a layout constrained by a strict JSON Schema. The application validates the referenced props, places floor and surface objects, keeps floor objects inside the room, resolves simple overlaps, and renders the result.
@@ -171,6 +173,16 @@ Select **Export to JSON** to write `saved_scene.json` to the process working dir
 ## Adding assets
 
 Add supported model files anywhere below `assets/models`, then rebuild (or ensure the files are present next to the executable in its copied `assets/models` directory). The application discovers models recursively. Avoid duplicate filename stems: the stem is the asset identifier used in generation and exports.
+
+## Credits
+
+The 3D assets included for testing are from Kenney's [Graveyard Kit](https://kenney.itch.io/kenney-game-assets). Thank you to [Kenney](https://kenney.nl/) for making these assets available under the [CC0 1.0 Universal](https://creativecommons.org/publicdomain/zero/1.0/) license.
+
+## License
+
+Unless a file states otherwise, this project's source code is licensed under the [PolyForm Noncommercial License 1.0.0](LICENSE). Commercial use, including commercial distribution, requires a separate written license from the copyright holder. This is source-available software, not open source.
+
+The testing assets under `assets/models/Graveyard` are licensed separately under CC0 1.0 and are not subject to this noncommercial restriction.
 
 ## API notes and troubleshooting
 
