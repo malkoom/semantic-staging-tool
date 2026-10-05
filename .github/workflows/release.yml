@@ -41,16 +41,15 @@ jobs:
       - name: Build
         run: cmake --build build-linux --config Release --parallel
 
-      - name: Assemble distributable folder
-        run: cmake --install build-linux --prefix dist-linux
-
       - name: Package
         env:
           RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
         run: |
           package_dir="${PROJECT_NAME}-linux-x86_64"
           mkdir -p "$package_dir"
-          cp -R dist-linux/. "$package_dir/"
+          cp "build-linux/$PROJECT_NAME" "$package_dir/"
+          cp -R build-linux/assets build-linux/shaders "$package_dir/"
+          cp README.md LICENSE "$package_dir/"
           tar -czf "${package_dir}-${RELEASE_TAG}.tar.gz" "$package_dir"
 
       - name: Upload release archive
@@ -75,9 +74,6 @@ jobs:
       - name: Build
         run: cmake --build build-windows --config Release --parallel
 
-      - name: Assemble distributable folder
-        run: cmake --install build-windows --config Release --prefix dist-windows
-
       - name: Package
         shell: pwsh
         env:
@@ -85,7 +81,9 @@ jobs:
         run: |
           $packageDir = "$env:PROJECT_NAME-windows-x64"
           New-Item -ItemType Directory -Force $packageDir | Out-Null
-          Copy-Item dist-windows/* -Destination $packageDir -Recurse
+          Copy-Item "build-windows/Release/$env:PROJECT_NAME.exe" $packageDir
+          Copy-Item build-windows/Release/assets, build-windows/Release/shaders -Destination $packageDir -Recurse
+          Copy-Item README.md, LICENSE -Destination $packageDir
           Compress-Archive -Path $packageDir -DestinationPath "$packageDir-$env:RELEASE_TAG.zip"
 
       - name: Upload release archive
