@@ -1,3 +1,6 @@
+#include <cmath>
+
+#include <array>
 #include <iostream>
 
 #include "UI/GuizmoManager.hpp"
@@ -76,8 +79,8 @@ The JSON must adhere strictly to this schema:
 nlohmann::json BuildLayoutResponseFormat() {
     const nlohmann::json positionHintSchema = {
         {"type", "object"},
-        {"properties", {{"x", {{"type", "number"}}},
-                        {"y", {{"type", "number"}}}}},
+        {"properties",
+         {{"x", {{"type", "number"}}}, {"y", {{"type", "number"}}}}},
         {"required", {"x", "y"}},
         {"additionalProperties", false}};
 
@@ -93,9 +96,9 @@ nlohmann::json BuildLayoutResponseFormat() {
           {"rotation_y", {{"type", "number"}}},
           {"state",
            {{"type", "string"}, {"enum", {"upright", "knocked_over"}}}}}},
-        {"required", {"instance_id", "prop_id", "placement_type",
-                      "relative_to", "position_hint", "rotation_y",
-                      "state"}},
+        {"required",
+         {"instance_id", "prop_id", "placement_type", "relative_to",
+          "position_hint", "rotation_y", "state"}},
         {"additionalProperties", false}};
 
     return {{"type", "json_schema"},
@@ -109,6 +112,70 @@ nlohmann::json BuildLayoutResponseFormat() {
                   {"entities", {{"type", "array"}, {"items", entitySchema}}}}},
                 {"required", {"layout_name", "entities"}},
                 {"additionalProperties", false}}}}}};
+}
+
+bool ValidateLayoutResponse(const nlohmann::json& layout,
+                            std::string& errorMessage) {
+    if (!layout.is_object() || !layout.contains("layout_name") ||
+        !layout["layout_name"].is_string() || !layout.contains("entities") ||
+        !layout["entities"].is_array()) {
+        errorMessage = "La respuesta no tiene el formato esperado (layout_name "
+                       "y entities).";
+        return false;
+    }
+
+    for (std::size_t index = 0; index < layout["entities"].size(); ++index) {
+        const auto& entity = layout["entities"][index];
+        const std::string prefix =
+            "Entidad " + std::to_string(index + 1) + ": ";
+        if (!entity.is_object()) {
+            errorMessage = prefix + "debe ser un objeto JSON.";
+            return false;
+        }
+
+        constexpr std::array<const char*, 7> requiredFields = {
+            "instance_id",   "prop_id",    "placement_type", "relative_to",
+            "position_hint", "rotation_y", "state"};
+        for (const char* field : requiredFields) {
+            if (!entity.contains(field)) {
+                errorMessage = prefix + "falta el campo '" + field + "'.";
+                return false;
+            }
+        }
+
+        if (!entity["instance_id"].is_string() ||
+            !entity["prop_id"].is_string() ||
+            !entity["relative_to"].is_string() ||
+            !entity["placement_type"].is_string() ||
+            !entity["state"].is_string() || !entity["rotation_y"].is_number() ||
+            !std::isfinite(entity["rotation_y"].get<double>())) {
+            errorMessage = prefix + "contiene tipos de datos no válidos.";
+            return false;
+        }
+
+        const auto& position = entity["position_hint"];
+        if (!position.is_object() || !position.contains("x") ||
+            !position.contains("y") || !position["x"].is_number() ||
+            !position["y"].is_number() ||
+            !std::isfinite(position["x"].get<double>()) ||
+            !std::isfinite(position["y"].get<double>())) {
+            errorMessage =
+                prefix + "position_hint debe incluir x e y numéricos.";
+            return false;
+        }
+
+        const std::string placement =
+            entity["placement_type"].get<std::string>();
+        const std::string state = entity["state"].get<std::string>();
+        if ((placement != "ground" && placement != "on_top_of") ||
+            (state != "upright" && state != "knocked_over")) {
+            errorMessage =
+                prefix + "contiene un placement_type o state no permitido.";
+            return false;
+        }
+    }
+
+    return true;
 }
 
 int main() {
@@ -194,9 +261,24 @@ int main() {
         }
 
         if (auto layoutJson = aiManager.PollResult()) {
-            currentLayout = nlohmann::json::parse(layoutJson.value());
-            sceneGraph.ApplyLayoutDirectives(*layoutJson, !sceneGraph.IsEmpty(),
-                                             roomWidth, roomDepth);
+            try {
+                nlohmann::json parsedLayout =
+                    nlohmann::json::parse(*layoutJson);
+                if (!ValidateLayoutResponse(parsedLayout, lastAIError)) {
+                    continue;
+                }
+                if (!sceneGraph.ApplyLayoutDirectives(*layoutJson,
+                                                      !sceneGraph.IsEmpty(),
+                                                      roomWidth, roomDepth)) {
+                    lastAIError =
+                        "No se pudo aplicar la respuesta JSON a la escena.";
+                    continue;
+                }
+                currentLayout = std::move(parsedLayout);
+            } catch (const nlohmann::json::exception& e) {
+                lastAIError =
+                    std::string("La IA devolvió JSON inválido: ") + e.what();
+            }
         }
 
         guizmoManager.TryHitObject(sceneGraph, camera);

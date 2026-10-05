@@ -80,7 +80,7 @@ void GUI::DrawEditorUI(float& roomWidth, float& roomDepth, float& scale,
 
         ImGui::TextDisabled("Enter a prompt");
         static char textInputBuffer[2048];
-        if (ImGui::InputTextMultiline("", textInputBuffer,
+        if (ImGui::InputTextMultiline("Prompt", textInputBuffer,
                                       sizeof(textInputBuffer),
                                       ImVec2(-1.0f, 110.0f))) {
             guizmoManager.CanUse = false;
