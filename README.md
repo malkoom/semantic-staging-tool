@@ -2,7 +2,7 @@
 
 ![Semantic Staging Tool logo](extra/logo.png)
 
-Semantic Staging Tool is an AI-assisted desktop application for dressing and arranging 3D scenes. Describe the setup you want in natural language, select a Groq-compatible model, and the application creates an editable layout using the 3D assets included with the project.
+Semantic Staging Tool is an AI-assisted desktop application for dressing and arranging 3D scenes. Describe the setup you want in natural language, select a Groq-compatible model, and the application creates an editable layout using the 3D assets included with the project. You can watch a demo here: [Demo YT](https://youtu.be/lHrFCO-PiiQ?si=9yOEDWVKB7NFpmC0)
 
 > **Version 1.0.0** — first public release.
 
